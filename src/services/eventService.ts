@@ -49,10 +49,10 @@ const docToEvent = (id: string, data: Record<string, unknown>): Event => ({
 });
 
 // Helper to remove undefined values from an object (Firestore doesn't accept undefined)
-const removeUndefined = <T extends Record<string, unknown>>(obj: T): Partial<T> => {
+const removeUndefined = <T extends object>(obj: T): Partial<T> => {
   const result: Partial<T> = {};
   for (const key in obj) {
-    if (obj[key] !== undefined) {
+    if (Object.prototype.hasOwnProperty.call(obj, key) && obj[key] !== undefined) {
       result[key] = obj[key];
     }
   }
@@ -129,8 +129,11 @@ export const eventService = {
       }
     }
 
+    // Filter out undefined values (Firestore doesn't accept undefined)
+    const cleanedData = removeUndefined(data);
+
     await updateDoc(eventRef, {
-      ...data,
+      ...cleanedData,
       updatedAt: serverTimestamp(),
     });
   },

@@ -14,6 +14,7 @@ import { ProfileView } from '@/views/profile/ProfileView';
 import { SettingsView } from '@/views/profile/SettingsView';
 import { EventDetailView } from '@/views/event/EventDetailView';
 import { CreateEventView } from '@/views/event/CreateEventView';
+import { EditEventView } from '@/views/event/EditEventView';
 import { NotificationsView } from '@/views/notifications/NotificationsView';
 import { ListsView } from '@/views/list/ListsView';
 import { ListDetailView } from '@/views/list/ListDetailView';
@@ -154,6 +155,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <CreateEventView />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={ROUTES.EDIT_EVENT}
+        element={
+          <ProtectedRoute>
+            <EditEventView />
           </ProtectedRoute>
         }
       />

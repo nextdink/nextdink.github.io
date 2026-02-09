@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Calendar, Clock, MapPin, ExternalLink, UserPlus, Search, X, Share2, Trash2, CalendarPlus } from 'lucide-react';
+import { Calendar, Clock, MapPin, ExternalLink, UserPlus, Search, X, Share2, Trash2, CalendarPlus, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Card } from '@/components/ui/Card';
@@ -19,7 +19,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAuthGateWithMessage } from '@/hooks/useAuthGate';
 import { eventService } from '@/services/eventService';
 import { userService } from '@/services/userService';
-import { ROUTES } from '@/config/routes';
+import { ROUTES, getEditEventRoute } from '@/config/routes';
 import type { EventParticipant } from '@/types/event.types';
 import type { UserProfile } from '@/types/user.types';
 
@@ -367,7 +367,14 @@ export function EventDetailView() {
                 Invite Players
               </Button>
             </div>
-            <div className="pt-3 border-t border-slate-200 dark:border-slate-800">
+            <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+              <button
+                onClick={() => navigate(getEditEventRoute(eventId!))}
+                className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+              >
+                <Pencil className="w-4 h-4" />
+                Edit Event
+              </button>
               <button
                 onClick={() => setShowDeleteModal(true)}
                 className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
