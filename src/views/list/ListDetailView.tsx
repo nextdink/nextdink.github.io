@@ -41,6 +41,7 @@ export function ListDetailView() {
   const [showEditName, setShowEditName] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState<string | null>(null);
+  const [showPromoteAdminConfirm, setShowPromoteAdminConfirm] = useState<{ id: string; name: string } | null>(null);
   
   // Form states
   const [editName, setEditName] = useState('');
@@ -67,16 +68,22 @@ export function ListDetailView() {
     }
   };
 
-  const handleToggleAdmin = async (userId: string, currentlyAdmin: boolean) => {
+  const handlePromoteToAdmin = async (userId: string) => {
     setActionError(null);
     try {
-      if (currentlyAdmin) {
-        await removeAdmin(userId);
-      } else {
-        await addAdmin(userId);
-      }
+      await addAdmin(userId);
+      setShowPromoteAdminConfirm(null);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to update admin status');
+      setActionError(err instanceof Error ? err.message : 'Failed to promote to admin');
+    }
+  };
+
+  const handleDemoteAdmin = async (userId: string) => {
+    setActionError(null);
+    try {
+      await removeAdmin(userId);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to remove admin status');
     }
   };
 
@@ -227,7 +234,13 @@ export function ListDetailView() {
                         {/* Toggle admin (owner only) */}
                         {isOwner && (
                           <button
-                            onClick={() => handleToggleAdmin(member.id, isMemberAdmin)}
+                            onClick={() => {
+                              if (isMemberAdmin) {
+                                handleDemoteAdmin(member.id);
+                              } else {
+                                setShowPromoteAdminConfirm({ id: member.id, name: member.displayName });
+                              }
+                            }}
                             className={`p-2 rounded-lg transition-colors ${
                               isMemberAdmin
                                 ? 'text-purple-500 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950'
@@ -324,6 +337,17 @@ export function ListDetailView() {
         message="Are you sure you want to remove this member from the list?"
         confirmLabel="Remove"
         variant="danger"
+      />
+
+      {/* Promote to Admin Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!showPromoteAdminConfirm}
+        onClose={() => setShowPromoteAdminConfirm(null)}
+        onConfirm={() => showPromoteAdminConfirm && handlePromoteToAdmin(showPromoteAdminConfirm.id)}
+        title="Make Admin"
+        message={`Are you sure you want to make ${showPromoteAdminConfirm?.name || 'this member'} an admin? They will be able to view the list and add or remove members.`}
+        confirmLabel="Make Admin"
+        variant="default"
       />
     </PageLayout>
   );
