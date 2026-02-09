@@ -10,12 +10,14 @@ import { PageSpinner } from '@/components/ui/Spinner';
 import { LoginView } from '@/views/auth/LoginView';
 import { SignUpView } from '@/views/auth/SignUpView';
 import { HomeView } from '@/views/home/HomeView';
-import { DiscoverView } from '@/views/discover/DiscoverView';
 import { ProfileView } from '@/views/profile/ProfileView';
 import { SettingsView } from '@/views/profile/SettingsView';
 import { EventDetailView } from '@/views/event/EventDetailView';
 import { CreateEventView } from '@/views/event/CreateEventView';
 import { NotificationsView } from '@/views/notifications/NotificationsView';
+import { ListsView } from '@/views/list/ListsView';
+import { ListDetailView } from '@/views/list/ListDetailView';
+import { CreateListView } from '@/views/list/CreateListView';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -99,10 +101,26 @@ function AppRoutes() {
         }
       />
       <Route
-        path={ROUTES.DISCOVER}
+        path={ROUTES.LISTS}
         element={
           <ProtectedRoute>
-            <DiscoverView />
+            <ListsView />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={ROUTES.LIST_DETAIL}
+        element={
+          <ProtectedRoute>
+            <ListDetailView />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={ROUTES.CREATE_LIST}
+        element={
+          <ProtectedRoute>
+            <CreateListView />
           </ProtectedRoute>
         }
       />
