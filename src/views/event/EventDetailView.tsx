@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Calendar, Clock, MapPin, ExternalLink, UserPlus, Search, X, Share2, Trash2 } from 'lucide-react';
+import { Calendar, Clock, MapPin, ExternalLink, UserPlus, Search, X, Share2, Trash2, CalendarPlus } from 'lucide-react';
 import { format } from 'date-fns';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Card } from '@/components/ui/Card';
@@ -12,6 +12,8 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Avatar } from '@/components/ui/Avatar';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { AuthGateModal } from '@/components/ui/AuthGateModal';
+import { AddToCalendarModal } from '@/components/ui/AddToCalendarModal';
+import type { CalendarEvent } from '@/utils/calendarUtils';
 import { useEvent } from '@/hooks/useEvent';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthGateWithMessage } from '@/hooks/useAuthGate';
@@ -40,6 +42,7 @@ export function EventDetailView() {
   // Modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
@@ -71,6 +74,8 @@ export function EventDetailView() {
         try {
           await eventService.joinEvent(eventId, user.uid);
           refetch();
+          // Show calendar prompt after successful join
+          setShowCalendarModal(true);
         } catch (err) {
           console.error('Failed to join event:', err);
         }
@@ -78,6 +83,18 @@ export function EventDetailView() {
       'Sign in to join',
       'Create an account or sign in to join this event and get updates.'
     );
+  };
+
+  // Create calendar event data from event details
+  const getCalendarEvent = (): CalendarEvent | null => {
+    if (!event) return null;
+    return {
+      title: event.name,
+      description: event.description,
+      location: `${event.venueName}, ${event.formattedAddress}`,
+      startDate: event.date,
+      endDate: event.endTime,
+    };
   };
 
   // Action to leave - wrapped with auth gate
@@ -302,6 +319,17 @@ export function EventDetailView() {
             </p>
           </Card>
         )}
+
+        {/* Add to Calendar Button */}
+        <Card>
+          <button
+            onClick={() => setShowCalendarModal(true)}
+            className="w-full flex items-center gap-3 text-slate-600 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+          >
+            <CalendarPlus className="w-5 h-5 flex-shrink-0" />
+            <span className="font-medium">Add to Calendar</span>
+          </button>
+        </Card>
 
         {/* Capacity */}
         <Card>
@@ -564,6 +592,15 @@ export function EventDetailView() {
           cancelLabel="Cancel"
           variant="danger"
           loading={isDeleting}
+        />
+
+        {/* Add to Calendar Modal */}
+        <AddToCalendarModal
+          isOpen={showCalendarModal}
+          onClose={() => setShowCalendarModal(false)}
+          event={getCalendarEvent()}
+          title="Add to Calendar"
+          message="Add this event to your calendar so you don't miss it!"
         />
       </div>
     </PageLayout>

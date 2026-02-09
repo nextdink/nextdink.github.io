@@ -256,9 +256,8 @@ export function CreateEventView() {
                   onChange={(e) => setJoinType(e.target.value as EventJoinType)}
                   className="w-full h-11 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:border-primary-600 dark:focus:border-primary-400"
                 >
-                  <option value="open">Open - Auto-join if space available</option>
+                  <option value="open">Open - Anyone who can see can join</option>
                   <option value="invite_only">Invite Only</option>
-                  <option value="approval">Approval Required</option>
                 </select>
               </div>
 
