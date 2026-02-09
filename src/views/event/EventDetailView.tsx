@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { CapacityBar } from '@/components/ui/CapacityBar';
-import { StatusBadge, RoleBadge, ParticipantStatusBadge } from '@/components/ui/Badge';
+import { StatusBadge, RoleBadge, ParticipantStatusBadge, VisibilityBadge, JoinTypeBadge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { Avatar } from '@/components/ui/Avatar';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
@@ -88,10 +88,19 @@ export function EventDetailView() {
   // Create calendar event data from event details
   const getCalendarEvent = (): CalendarEvent | null => {
     if (!event) return null;
+    
+    // Build description with venue name if different from address
+    let description = event.description || '';
+    if (event.venueName && !event.formattedAddress.includes(event.venueName)) {
+      description = description 
+        ? `Venue: ${event.venueName}\n\n${description}`
+        : `Venue: ${event.venueName}`;
+    }
+    
     return {
       title: event.name,
-      description: event.description,
-      location: `${event.venueName}, ${event.formattedAddress}`,
+      description,
+      location: event.formattedAddress,
       startDate: event.date,
       endDate: event.endTime,
     };
@@ -276,9 +285,13 @@ export function EventDetailView() {
               <StatusBadge status={event.status} />
             </div>
           </div>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">
             Organized by {isOwner ? 'you' : 'event owner'}
           </p>
+          <div className="flex items-center gap-2">
+            <VisibilityBadge visibility={event.visibility} />
+            <JoinTypeBadge joinType={event.joinType} />
+          </div>
         </div>
 
         {/* Event Info */}

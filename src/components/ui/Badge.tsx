@@ -95,3 +95,67 @@ export function Badge({ children, variant = 'default', className = '' }: BadgePr
 
 // Participant status badge (alias for StatusBadge for semantic clarity)
 export const ParticipantStatusBadge = StatusBadge;
+
+// Visibility badges for event visibility
+type VisibilityType = 'public' | 'code' | 'private';
+
+interface VisibilityBadgeProps {
+  visibility: string;
+  className?: string;
+}
+
+const visibilityStyles: Record<VisibilityType, string> = {
+  public: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800',
+  code: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800',
+  private: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700',
+};
+
+const visibilityLabels: Record<VisibilityType, string> = {
+  public: 'Public',
+  code: 'Code Required',
+  private: 'Private',
+};
+
+export function VisibilityBadge({ visibility, className = '' }: VisibilityBadgeProps) {
+  const normalizedVisibility = visibility.toLowerCase() as VisibilityType;
+  const styles = visibilityStyles[normalizedVisibility] || visibilityStyles.private;
+  const label = visibilityLabels[normalizedVisibility] || visibility;
+  
+  return (
+    <span className={`text-xs font-medium px-2 py-1 rounded-md border ${styles} ${className}`}>
+      {label}
+    </span>
+  );
+}
+
+// Join type badges for event join type
+type JoinTypeType = 'open' | 'invite_only' | 'approval';
+
+interface JoinTypeBadgeProps {
+  joinType: string;
+  className?: string;
+}
+
+const joinTypeStyles: Record<JoinTypeType, string> = {
+  open: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800',
+  invite_only: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-400 dark:border-purple-800',
+  approval: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800',
+};
+
+const joinTypeLabels: Record<JoinTypeType, string> = {
+  open: 'Open',
+  invite_only: 'Invite Only',
+  approval: 'Approval Required',
+};
+
+export function JoinTypeBadge({ joinType, className = '' }: JoinTypeBadgeProps) {
+  const normalizedJoinType = joinType.toLowerCase() as JoinTypeType;
+  const styles = joinTypeStyles[normalizedJoinType] || joinTypeStyles.open;
+  const label = joinTypeLabels[normalizedJoinType] || joinType;
+  
+  return (
+    <span className={`text-xs font-medium px-2 py-1 rounded-md border ${styles} ${className}`}>
+      {label}
+    </span>
+  );
+}
