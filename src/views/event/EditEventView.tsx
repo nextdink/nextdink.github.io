@@ -14,10 +14,10 @@ import type { EventLocation, EventVisibility, EventJoinType, UpdateEventData } f
 import { format } from 'date-fns';
 
 export function EditEventView() {
-  const { eventId } = useParams();
+  const { eventCode } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { event, isLoading: isLoadingEvent, error: loadError } = useEvent(eventId);
+  const { event, isLoading: isLoadingEvent, error: loadError } = useEvent(eventCode);
   
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -65,7 +65,7 @@ export function EditEventView() {
   const canEdit = user && event && (event.ownerId === user.uid || event.adminIds?.includes(user.uid));
 
   const handleSubmit = async () => {
-    if (!user || !eventId) {
+    if (!user || !event) {
       setError('You must be logged in to edit an event');
       return;
     }
@@ -103,8 +103,8 @@ export function EditEventView() {
         joinType,
       };
 
-      await eventService.update(eventId, updateData);
-      navigate(getEventRoute(eventId));
+      await eventService.update(event.id, updateData);
+      navigate(getEventRoute(event.eventCode!));
     } catch (err) {
       console.error('Failed to update event:', err);
       setError(err instanceof Error ? err.message : 'Failed to update event. Please try again.');
@@ -155,7 +155,7 @@ export function EditEventView() {
           <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
             You don't have permission to edit this event.
           </p>
-          <Button onClick={() => navigate(getEventRoute(eventId!))}>Back to Event</Button>
+          <Button onClick={() => navigate(getEventRoute(event.eventCode!))}>Back to Event</Button>
         </div>
       </PageLayout>
     );
@@ -172,7 +172,7 @@ export function EditEventView() {
           <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
             This event has been {event.status} and cannot be edited.
           </p>
-          <Button onClick={() => navigate(getEventRoute(eventId!))}>Back to Event</Button>
+          <Button onClick={() => navigate(getEventRoute(event.eventCode!))}>Back to Event</Button>
         </div>
       </PageLayout>
     );

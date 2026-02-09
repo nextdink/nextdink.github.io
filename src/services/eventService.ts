@@ -60,7 +60,7 @@ const removeUndefined = <T extends object>(obj: T): Partial<T> => {
 };
 
 export const eventService = {
-  // Create a new event
+  // Create a new event - returns the generated eventCode for navigation
   async create(data: CreateEventData, ownerId: string): Promise<string> {
     const eventsRef = collection(db, 'events');
     
@@ -102,9 +102,10 @@ export const eventService = {
       updatedAt: serverTimestamp(),
     });
 
-    const docRef = await addDoc(eventsRef, eventData);
+    await addDoc(eventsRef, eventData);
 
-    return docRef.id;
+    // Return the eventCode for navigation (URLs now use eventCode)
+    return eventCode;
   },
 
   // Get event by ID

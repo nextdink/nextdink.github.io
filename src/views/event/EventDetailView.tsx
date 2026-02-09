@@ -24,10 +24,10 @@ import type { EventParticipant } from '@/types/event.types';
 import type { UserProfile } from '@/types/user.types';
 
 export function EventDetailView() {
-  const { eventId } = useParams();
+  const { eventCode } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { event, participants, isLoading, error, refetch } = useEvent(eventId);
+  const { event, participants, isLoading, error, refetch } = useEvent(eventCode);
   
   // Auth gate for protected actions
   const {
@@ -70,9 +70,9 @@ export function EventDetailView() {
   const handleJoin = () => {
     requireAuth(
       async () => {
-        if (!eventId || !user) return;
+        if (!event || !user) return;
         try {
-          await eventService.joinEvent(eventId, user.uid);
+          await eventService.joinEvent(event.id, user.uid);
           refetch();
           // Show calendar prompt after successful join
           setShowCalendarModal(true);
@@ -110,9 +110,9 @@ export function EventDetailView() {
   const handleLeave = () => {
     requireAuth(
       async () => {
-        if (!eventId || !user) return;
+        if (!event || !user) return;
         try {
-          await eventService.leaveEvent(eventId, user.uid);
+          await eventService.leaveEvent(event.id, user.uid);
           refetch();
         } catch (err) {
           console.error('Failed to leave event:', err);
@@ -198,10 +198,10 @@ export function EventDetailView() {
 
   // Invite a user
   const handleInvite = async (userId: string) => {
-    if (!eventId || !user) return;
+    if (!event || !user) return;
     setInviting(userId);
     try {
-      await eventService.inviteUser(eventId, userId, user.uid);
+      await eventService.inviteUser(event.id, userId, user.uid);
       // Remove from search results
       setSearchResults(prev => prev.filter(u => u.id !== userId));
       refetch();
@@ -214,9 +214,9 @@ export function EventDetailView() {
 
   // Remove a participant (for owners/admins)
   const handleRemove = async (userId: string) => {
-    if (!eventId) return;
+    if (!event) return;
     try {
-      await eventService.removeParticipant(eventId, userId);
+      await eventService.removeParticipant(event.id, userId);
       refetch();
     } catch (err) {
       console.error('Failed to remove participant:', err);
@@ -225,10 +225,10 @@ export function EventDetailView() {
 
   // Delete event (for admins and owners)
   const handleDelete = async () => {
-    if (!eventId) return;
+    if (!event) return;
     setIsDeleting(true);
     try {
-      await eventService.delete(eventId);
+      await eventService.delete(event.id);
       navigate(ROUTES.HOME);
     } catch (err) {
       console.error('Failed to delete event:', err);
@@ -369,7 +369,7 @@ export function EventDetailView() {
             </div>
             <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-800">
               <button
-                onClick={() => navigate(getEditEventRoute(eventId!))}
+                onClick={() => navigate(getEditEventRoute(event.eventCode!))}
                 className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
               >
                 <Pencil className="w-4 h-4" />

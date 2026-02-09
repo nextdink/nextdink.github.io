@@ -7,19 +7,19 @@ export const ROUTES = {
   LOGIN: '/login',
   SIGNUP: '/signup',
   CREATE_EVENT: '/events/create',
-  EVENT_DETAIL: '/events/:eventId',
-  EDIT_EVENT: '/events/:eventId/edit',
+  EVENT_DETAIL: '/events/:eventCode',
+  EDIT_EVENT: '/events/:eventCode/edit',
   LIST_DETAIL: '/lists/:listId',
   CREATE_LIST: '/lists/create',
 } as const;
 
 // Helper functions to generate routes with parameters
-export function getEventRoute(eventId: string): string {
-  return ROUTES.EVENT_DETAIL.replace(':eventId', eventId);
+export function getEventRoute(eventCode: string): string {
+  return ROUTES.EVENT_DETAIL.replace(':eventCode', eventCode);
 }
 
-export function getEditEventRoute(eventId: string): string {
-  return ROUTES.EDIT_EVENT.replace(':eventId', eventId);
+export function getEditEventRoute(eventCode: string): string {
+  return ROUTES.EDIT_EVENT.replace(':eventCode', eventCode);
 }
 
 export function getListRoute(listId: string): string {

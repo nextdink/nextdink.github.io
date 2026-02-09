@@ -19,7 +19,7 @@ export function EventCard({ event, userStatus, className = '' }: EventCardProps)
   return (
     <Card
       className={`cursor-pointer hover:border-slate-300 dark:hover:border-slate-700 transition-colors ${className}`}
-      onClick={() => navigate(getEventRoute(event.id))}
+      onClick={() => navigate(getEventRoute(event.eventCode!))}
     >
       <div className="flex items-start justify-between mb-2">
         <h3 className="text-base font-medium text-slate-900 dark:text-slate-100">

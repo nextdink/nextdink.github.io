@@ -11,14 +11,14 @@ interface UseEventResult {
   refetch: () => Promise<void>;
 }
 
-export function useEvent(eventId: string | undefined): UseEventResult {
+export function useEvent(eventCode: string | undefined): UseEventResult {
   const [event, setEvent] = useState<Event | null>(null);
   const [participants, setParticipants] = useState<EventParticipant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   const fetchEvent = useCallback(async () => {
-    if (!eventId) {
+    if (!eventCode) {
       setEvent(null);
       setParticipants([]);
       setIsLoading(false);
@@ -29,13 +29,13 @@ export function useEvent(eventId: string | undefined): UseEventResult {
     setError(null);
 
     try {
-      // Fetch event details
-      const eventData = await eventService.getById(eventId);
+      // Fetch event details by code
+      const eventData = await eventService.getByCode(eventCode);
       setEvent(eventData);
 
-      // Fetch participants if event exists
+      // Fetch participants if event exists (using the event's internal ID)
       if (eventData) {
-        const participantData = await eventService.getParticipants(eventId);
+        const participantData = await eventService.getParticipants(eventData.id);
         
         // Fetch user profiles for all participants
         if (participantData.length > 0) {
@@ -64,7 +64,7 @@ export function useEvent(eventId: string | undefined): UseEventResult {
     } finally {
       setIsLoading(false);
     }
-  }, [eventId]);
+  }, [eventCode]);
 
   useEffect(() => {
     fetchEvent();
