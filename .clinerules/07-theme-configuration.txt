@@ -1,0 +1,130 @@
+Theme Configuration
+
+Next Dink – Centralized Theme System
+
+---
+
+OVERVIEW
+
+The app uses a centralized theme configuration system that allows easy color scheme changes.
+All brand colors are defined in a single location: `src/config/theme.ts`
+
+---
+
+KEY FILES
+
+1. src/config/theme.ts
+   - Central definition of all brand colors
+   - Contains primary color palette (50-950 shades)
+   - Background colors for light/dark modes
+   - Avatar gradient pairs
+   - Theme colors for iOS Safari status bar
+
+2. src/index.css
+   - Tailwind v4 @theme directive defines custom CSS properties
+   - Maps theme.ts values to Tailwind utility classes (primary-*)
+   - Sets CSS variables for meta theme-color tags
+
+3. src/context/ThemeProvider.tsx
+   - Imports theme values from theme.ts
+   - Updates meta theme-color tags dynamically
+   - Manages light/dark/system theme modes
+
+---
+
+HOW TO CHANGE THE BRAND COLOR
+
+To change the app's primary color (currently cyan), update `src/config/theme.ts`:
+
+1. Replace the `colors.primary` object with your new color palette
+2. Update the first entry in `avatarGradients` to use the new primary colors
+3. The CSS automatically picks up changes via the @theme directive
+
+Example - changing from cyan to indigo:
+
+```typescript
+export const colors = {
+  primary: {
+    50: '#eef2ff',   // indigo-50
+    100: '#e0e7ff',  // indigo-100
+    // ... etc
+    600: '#4f46e5',  // indigo-600 (main brand color)
+    // ...
+  },
+} as const;
+```
+
+---
+
+TAILWIND UTILITY CLASSES
+
+Use these semantic color classes throughout the codebase:
+
+- text-primary-600 / dark:text-primary-400  (brand text color)
+- bg-primary-600 / dark:bg-primary-500      (brand background)
+- hover:bg-primary-700                       (hover states)
+- border-primary-600                         (borders)
+- focus:border-primary-600                   (focus states)
+
+Never use hardcoded color names like cyan-600 or teal-500 for brand colors.
+Always use primary-* for brand-related styling.
+
+---
+
+AVATAR GRADIENTS
+
+The `avatarGradients` array in theme.ts defines color pairs for generated user avatars.
+The first pair should always be the primary brand colors.
+`src/utils/avatarUtils.ts` imports these from the central config.
+
+---
+
+IOS SAFE AREA COLORS
+
+The index.html contains meta theme-color tags that control:
+- iOS Safari status bar color
+- Android Chrome address bar color
+
+These are dynamically updated by ThemeProvider.tsx using values from theme.ts.
+
+The index.css also uses env(safe-area-inset-*) to properly handle notches and home indicators.
+
+---
+
+SEMANTIC COLOR GUIDELINES
+
+- primary-*   → Brand/accent color (buttons, links, active states)
+- slate-*     → Neutral grays (backgrounds, borders, text)
+- emerald-*   → Success states (joined, confirmed)
+- amber-*     → Warning states (waitlisted, full capacity)
+- red-*       → Error/danger states (declined, canceled)
+- purple-*    → Admin role indicators
+
+---
+
+FILES USING PRIMARY-* COLORS
+
+Components:
+- src/components/ui/Button.tsx
+- src/components/ui/Spinner.tsx
+- src/components/ui/Input.tsx
+- src/components/ui/Badge.tsx
+- src/components/ui/CapacityBar.tsx
+- src/components/ui/Modal.tsx
+- src/components/ui/LocationInput.tsx
+- src/components/ui/AuthGateModal.tsx
+
+Layout:
+- src/components/layout/Header.tsx
+- src/components/layout/PageLayout.tsx
+- src/components/layout/BottomNav.tsx
+
+Views:
+- src/views/auth/LoginView.tsx
+- src/views/auth/SignUpView.tsx
+- src/views/event/CreateEventView.tsx
+- src/views/event/EventDetailView.tsx
+- src/views/profile/SettingsView.tsx
+
+Utilities:
+- src/utils/avatarUtils.ts (imports avatarGradients from theme.ts)

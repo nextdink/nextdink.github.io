@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* 
+ * Primary brand color palette - CENTRALIZED THEME COLORS
+ * To change the app's color scheme, update these values.
+ * Currently using cyan - swap with any Tailwind color palette.
+ */
+@theme {
+  --color-primary-50: #ecfeff;
+  --color-primary-100: #cffafe;
+  --color-primary-200: #a5f3fc;
+  --color-primary-300: #67e8f9;
+  --color-primary-400: #22d3ee;
+  --color-primary-500: #06b6d4;
+  --color-primary-600: #0891b2;
+  --color-primary-700: #0e7490;
+  --color-primary-800: #155e75;
+  --color-primary-900: #164e63;
+  --color-primary-950: #083344;
+}
+
+/* Base styles for iOS safe areas and consistent backgrounds */
+html {
+  background-color: #ffffff;
+}
+
+.dark html,
+html.dark {
+  background-color: #020617;
+}
+
+body {
+  background-color: #ffffff;
+  min-height: 100vh;
+  min-height: 100dvh;
+  /* Safe area padding for iOS devices */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+.dark body {
+  background-color: #020617;
+}
+
+/* Ensure root element fills the viewport */
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+}

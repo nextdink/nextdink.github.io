@@ -1,0 +1,163 @@
+Technical Stack
+
+Next Dink – Technical Architecture (MVP)
+
+---
+
+FRONTEND
+
+Framework: React 18+
+Build Tool: Vite
+Language: TypeScript (strict mode)
+
+Key Libraries:
+- React Router (routing)
+- React Query or SWR (data fetching/caching)
+- Zustand or React Context (state management)
+- date-fns or dayjs (date handling)
+- Lucide React (icons)
+
+Styling:
+- Tailwind CSS
+- Mobile-first responsive design
+- Progressive Web App
+
+---
+
+BACKEND / INFRASTRUCTURE
+
+Platform: Firebase
+
+Services Used:
+- Firebase Authentication
+  - Google Sign-In
+  - Microsoft Sign-In
+  - Email/Password
+- Cloud Firestore (database)
+- Cloud Functions (optional, for complex operations like eventCode validation)
+
+Note: Firebase Storage is NOT used. Profile avatars are generated client-side
+using a deterministic algorithm based on user ID (similar to GitHub identicons).
+
+---
+
+HOSTING & DEPLOYMENT
+
+Hosting: GitHub Pages
+
+Build & Deploy:
+- Vite builds static assets to /dist
+- GitHub Actions workflow for CI/CD
+- Deploy to GitHub Pages on push to main branch
+
+Custom Domain: Optional (configure via GitHub Pages settings)
+
+---
+
+DEVELOPMENT WORKFLOW
+
+Version Control: Git + GitHub
+
+Branch Strategy:
+- main: production-ready code
+- develop: integration branch
+- feature/*: individual features
+
+Code Quality:
+- ESLint (linting)
+- Prettier (formatting)
+- TypeScript strict mode
+- Husky + lint-staged (pre-commit hooks)
+
+---
+
+PROJECT STRUCTURE
+
+/src
+  /components      # Reusable UI components
+  /pages           # Route-level page components
+  /hooks           # Custom React hooks
+  /services        # Firebase service functions
+  /types           # TypeScript type definitions
+  /utils           # Utility functions
+  /context         # React context providers
+  /styles          # Global styles
+/public            # Static assets
+/functions         # Firebase Cloud Functions (if needed)
+
+---
+
+ENVIRONMENT VARIABLES
+
+Required:
+- VITE_FIREBASE_API_KEY
+- VITE_FIREBASE_AUTH_DOMAIN
+- VITE_FIREBASE_PROJECT_ID
+- VITE_FIREBASE_STORAGE_BUCKET
+- VITE_FIREBASE_MESSAGING_SENDER_ID
+- VITE_FIREBASE_APP_ID
+
+Optional:
+- VITE_GOOGLE_MAPS_API_KEY (for place autocomplete)
+
+---
+
+FIREBASE CONFIGURATION
+
+1. Create Firebase project in Firebase Console
+2. Enable Authentication providers (Google, Microsoft, Email/Password)
+3. Create Firestore database (start in test mode, then add security rules)
+4. Deploy Firestore indexes (see database-design.txt)
+5. Configure security rules for Firestore
+
+---
+
+GITHUB PAGES DEPLOYMENT
+
+GitHub Actions Workflow (.github/workflows/deploy.yml):
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build
+        run: npm run build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+      
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+
+---
+
+NOTES
+
+- Use Vite's base config for GitHub Pages subdirectory deployment
+- Configure vite.config.ts with base: '/<repo-name>/' for proper asset paths
+- Use HashRouter instead of BrowserRouter if not using custom domain (avoids 404 on refresh)
+- Store Firebase secrets in GitHub repository secrets for CI/CD

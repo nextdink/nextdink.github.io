@@ -1,0 +1,180 @@
+Next Dink
+
+Next Dink – MVP Requirements
+
+Core Identity:
+Next Dink is a structured, reliable way to organize serious pickleball games with controlled capacity and clear participation — eliminating group text chaos.
+
+1. Authentication
+
+Users can:
+- Sign in with Google
+- Sign in with Microsoft
+- Sign up / sign in with email + password
+
+User Profile:
+- Unique system-generated user ID
+- Display name
+- Profile photo from OAuth provider (Google/Microsoft) if available
+- Generated avatar for users without OAuth photos
+  - Gradient background with vibrant, modern colors
+  - User initials overlaid on the gradient
+  - Subtle decorative pattern for visual uniqueness
+  - Deterministic: same avatar generated for same user ID across all devices
+  - Computed client-side based on user ID hash
+  - No server storage required
+- CreatedAt
+- UpdatedAt
+
+2. Users
+
+Users can:
+- View public profiles of other users
+- Invite any user to events
+
+3. Events
+
+Users can:
+- Create events
+- View events they created
+- View events they are invited to
+- View events they joined
+- View public events (if visibility is Public)
+- Share event using native device share functionality
+
+Event Fields (Required):
+- Name
+- Date
+- Start time
+- End time
+- Max players
+- Venue Name
+- Address (selected via structured place search)
+
+Event Fields (Optional):
+- Description
+
+Location Requirements:
+
+When selecting a location:
+- User searches using place autocomplete (e.g., Google Places or similar)
+- User selects a structured result from dropdown
+- Custom address entry is allowed if needed
+
+For each event, system stores:
+- Venue Name
+- Formatted Address
+- Latitude
+- Longitude
+- Place ID (optional)
+
+Location Display:
+- Venue Name and Address shown on event page
+- Tapping location opens native Maps app (Apple Maps / Google Maps)
+- On web, opens Google Maps in new tab
+
+System Fields:
+- CreatedAt
+- UpdatedAt
+- Status:
+  - Active
+  - Canceled
+  - Completed
+
+Event Visibility (Who Can See Event):
+- Public
+- Code-based
+- Private (invite-only)
+
+Event Join Type (How Users Join):
+- Open (auto-join if space available)
+- Invite-only
+- Approval-required
+
+Player Status per Event:
+- Joined
+- Invited – Pending
+- Waitlisted
+- Declined
+
+Capacity & Waitlist Rules:
+- If event is full, new joins go to waitlist
+- If a joined player leaves, first waitlisted player is auto-promoted
+- Waitlisted players receive notification when promoted
+- Waitlisted players receive notification when their position changes
+- Waitlisted players cannot decline promotion; they can leave the waitlist or leave after being promoted
+- If maxPlayers is reduced below current joinedCount, the last players to have joined are moved to the top of the waitlist
+
+Event Editing Rules:
+- Events can be edited at any time while status is Active
+- Events cannot be edited after status is Completed or Canceled
+- Edits are allowed up until the event completion time
+
+Event Roles:
+
+Each event has:
+- One Owner
+- Zero or more Admins
+
+Owner can:
+- Invite individual users
+- Invite entire list
+- Remove players
+- Promote users to admin
+- Demote admins
+- Remove admins
+- Edit event details
+- Cancel event
+
+Admins can:
+- Invite users
+- Add other admins
+- Remove players
+- Edit event details
+
+Rules:
+- There can only be one Owner
+- Admins can add other admins
+- Only Owner can remove admins
+
+4. Lists (Private Invite Tool)
+
+Each list has:
+- Name
+- Members
+- One Owner
+- Zero or more Admins
+- CreatedAt
+- UpdatedAt
+
+Owner can:
+- Add/remove members
+- Promote users to admin
+- Demote admins
+
+Admins can:
+- Add/remove members
+
+Rules:
+- Only Owner and Admins can view the list
+- Only Owner and Admins can use list to bulk-invite
+- There can only be one Owner
+- List members cannot see that they are on a list
+- Lists have no chat functionality
+
+5. Notifications (In-App Only for MVP)
+
+Notification Fields:
+- ID
+- Type
+- RelatedEntityId (event, invite, etc.)
+- IsRead
+- CreatedAt
+
+Notification Triggers:
+- Invited to event
+- Approved to join event
+- Moved off waitlist (promoted to joined)
+- Waitlist position changed
+- Event canceled
+- Event updated

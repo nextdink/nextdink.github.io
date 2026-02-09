@@ -1,0 +1,162 @@
+juDb design
+
+Next Dink – Firestore Database Model (MVP)
+
+COLLECTION: users
+Document ID: userId (Firebase Auth UID)
+
+Fields:
+- displayName (string)
+- photoUrl (string | null)
+  // Only populated from OAuth provider (Google/Microsoft)
+  // For users without OAuth photos, avatars are generated client-side
+  // using deterministic algorithm based on userId (not stored in database)
+- createdAt (timestamp)
+- updatedAt (timestamp)
+
+SUBCOLLECTION: users/{userId}/notifications
+Document ID: notificationId
+
+Fields:
+- type (string) 
+  // invite, approved, waitlist_promoted, waitlist_position_changed, event_canceled, event_updated
+- relatedEntityId (string)  // usually eventId
+- isRead (boolean)
+- createdAt (timestamp)
+
+COLLECTION: events
+Document ID: eventId
+
+Fields:
+- name (string)
+- description (string)
+- date (timestamp)          // start datetime
+- endTime (timestamp)
+- maxPlayers (number)
+
+// Location
+- venueName (string)
+- formattedAddress (string)
+- latitude (number)
+- longitude (number)
+- placeId (string)
+
+// Visibility & Join Rules
+- visibility (string) 
+  // public, code, private
+- joinType (string)
+  // open, invite_only, approval
+
+- eventCode (string | null)
+  // Must be unique across all active events when not null
+
+// Status
+- status (string)
+  // active, canceled, completed
+
+// Roles
+- ownerId (string)
+- adminIds (array<string>)
+
+// Counts (denormalized for fast reads)
+- joinedCount (number)
+- waitlistCount (number)
+
+// System
+- createdAt (timestamp)
+- updatedAt (timestamp)
+
+SUBCOLLECTION: events/{eventId}/participants
+Document ID: userId
+
+Fields:
+- status (string)
+  // joined, invited_pending, waitlisted, declined
+- role (string)
+  // owner, admin, player
+- joinedAt (timestamp)
+- invitedBy (string | null)
+- waitlistPosition (number | null)
+  // Only set when status is waitlisted; used for ordering
+
+COLLECTION: lists
+Document ID: listId
+
+Fields:
+- name (string)
+- ownerId (string)
+- adminIds (array<string>)
+- createdAt (timestamp)
+- updatedAt (timestamp)
+
+SUBCOLLECTION: lists/{listId}/members
+Document ID: userId
+
+Fields:
+- addedAt (timestamp)
+- addedBy (string)
+
+OPTIONAL FUTURE COLLECTION (For Location Discovery Optimization)
+
+COLLECTION: publicEvents
+Document ID: eventId
+
+Fields:
+- eventId (string)
+- date (timestamp)
+- latitude (number)
+- longitude (number)
+- city (string)
+- createdAt (timestamp)
+
+Purpose:
+- Used only for public event discovery queries
+- Mirrors minimal event data for efficient geo queries
+
+---
+
+FIRESTORE INDEXES
+
+The following composite indexes are required for efficient queries:
+
+1. events collection
+   - Query: Public events by date
+   - Fields: visibility (ASC), status (ASC), date (ASC)
+
+2. events collection
+   - Query: Public events by location and date
+   - Fields: visibility (ASC), status (ASC), latitude (ASC), longitude (ASC), date (ASC)
+
+3. events collection
+   - Query: Events by owner
+   - Fields: ownerId (ASC), date (DESC)
+
+4. events collection
+   - Query: Active events by eventCode (for uniqueness check)
+   - Fields: eventCode (ASC), status (ASC)
+
+5. events/{eventId}/participants subcollection
+   - Query: Participants by status
+   - Fields: status (ASC), joinedAt (ASC)
+
+6. events/{eventId}/participants subcollection
+   - Query: Waitlisted participants by position
+   - Fields: status (ASC), waitlistPosition (ASC)
+
+7. users/{userId}/notifications subcollection
+   - Query: Unread notifications
+   - Fields: isRead (ASC), createdAt (DESC)
+
+8. lists collection
+   - Query: Lists by owner
+   - Fields: ownerId (ASC), createdAt (DESC)
+
+---
+
+VALIDATION RULES
+
+eventCode Uniqueness:
+- When creating or updating an event with an eventCode, validate that no other active event has the same eventCode
+- Query: events where eventCode == newCode AND status == "active" AND eventId != currentEventId
+- If results > 0, reject the operation
+- Implement in Cloud Functions or security rules

@@ -1,0 +1,266 @@
+UI structure
+
+Next Dink – UI Structure (MVP)
+Core Identity: Structured, reliable event coordination for serious pickleball runs.
+No chat. No social feed. No reputation system.
+
+APP STRUCTURE
+
+Bottom Navigation (3 Tabs):
+
+1. Home
+2. Discover
+3. Profile
+
+Notifications:
+- Bell icon in top right on all main screens
+- Red badge indicator for unread
+
+--------------------------------------------------
+1. HOME (Mission Control)
+--------------------------------------------------
+
+Purpose:
+Quickly see what you're playing next.
+
+Sections:
+
+A. Next Upcoming Event (Large Card)
+- Event name
+- Date + time
+- Venue name
+- Capacity (6 / 8)
+- Status (Confirmed / Waitlisted)
+
+B. Other Upcoming Events
+
+C. Invitations (if any)
+- Accept
+- Decline
+
+D. Events You Own
+
+E. Quick Actions
+- Create Event
+- View Lists
+
+--------------------------------------------------
+2. DISCOVER (Public Events)
+--------------------------------------------------
+
+Top Filters:
+- City selector
+- Date filter
+
+Event Card Layout:
+- Event name
+- Date
+- Time
+- Venue name
+- Spots filled (6 / 8)
+- Distance (if location enabled)
+- Join button
+- "Approval Required" badge if applicable
+
+Empty State:
+- "No events found"
+- CTA: Create Event
+
+No map view for MVP.
+
+--------------------------------------------------
+3. PROFILE
+--------------------------------------------------
+
+Top:
+- Profile photo
+- Display name
+
+Sections:
+- My Events (Owned / Joined)
+- Lists
+- Settings
+  - Account settings
+  - Logout
+
+--------------------------------------------------
+EVENT DETAIL PAGE
+--------------------------------------------------
+
+Header:
+- Event name
+- Date + Time
+- "Organized by [Owner Name]" (clickable profile)
+- Status badge (Active / Canceled / Completed)
+
+Location Section:
+- Venue name
+- Address
+- Tap → Opens native Maps app
+
+Capacity Section:
+- Visual capacity bar
+- Text: 6 / 8 spots filled
+
+Description Section:
+- Shown only if present
+- Preserves line breaks
+- Max 500 characters
+
+Participants Section:
+
+Single unified list with profile photos.
+
+Sections in order:
+
+1. Joined
+2. Invited – Pending
+3. Waitlist (collapsed if empty)
+
+Each user row includes:
+- Profile photo
+- Display name
+- Role badge (if applicable)
+  - Owner
+  - Admin
+
+Rules:
+- Owner is NOT automatically joined
+- Owner must tap Join to play
+- Admins only appear if they are in one of the participant states
+- Admins not participating do not appear in list
+
+Sticky Bottom Action Area:
+
+If not joined:
+- Join
+or
+- Request to Join
+
+If joined:
+- Leave Event
+
+Owner sees:
+- Edit Event
+- Cancel Event
+
+Admins see:
+- Invite Players
+- Manage Participants
+
+Leaving Behavior:
+- Participants can leave at any time
+- Confirmation modal shown
+- If waitlist exists → auto-promote first waitlisted player
+- Promoted player receives notification
+
+Edit Behavior:
+If any of these fields change:
+- Date
+- Time
+- Location
+- Max players
+- Description
+- Join type
+- Visibility
+
+Then:
+- All joined + waitlisted participants receive notification
+- "Event [Name] was updated."
+
+Event detail shows:
+- "Last updated: [timestamp]"
+
+--------------------------------------------------
+CREATE EVENT
+--------------------------------------------------
+
+Primary Action:
++ Create Event
+
+Flow:
+
+Step 1 – Basic Info
+- Name
+- Description (optional)
+- Date
+- Start time
+- End time
+- Max players
+
+Step 2 – Location
+- Search using place autocomplete
+- Select structured location
+- Venue name auto-filled
+- Address displayed
+- Custom entry allowed
+
+Step 3 – Rules
+- Visibility:
+  - Public
+  - Code
+  - Private
+- Join Type:
+  - Open
+  - Invite-only
+  - Approval required
+
+Step 4 – Invite (optional)
+- Search users
+- Invite List
+
+Review Screen:
+- Summary
+- Create Event
+
+--------------------------------------------------
+LIST DETAIL PAGE
+--------------------------------------------------
+
+- List name
+- Member count
+- Member list (with profile photos)
+
+Owner can:
+- Add/remove members
+- Promote admins
+- Demote admins
+
+Admins can:
+- Add/remove members
+
+Only Owner can remove admins.
+
+Lists are private.
+No chat.
+
+--------------------------------------------------
+NOTIFICATIONS
+--------------------------------------------------
+
+Triggered by:
+- Event invite
+- Approval to join
+- Waitlist promotion
+- Waitlist position changed
+- Event updated
+- Event canceled
+
+Tap notification → Opens event page
+
+--------------------------------------------------
+DESIGN PRINCIPLES
+--------------------------------------------------
+
+- Clean, neutral color palette
+- One primary brand color
+- Strong typography hierarchy
+- No gradients
+- No social metrics
+- No chat UI
+- No ratings
+- No engagement mechanics
+- Fast creation flow
+- Clear capacity visibility
+- Clear ownership visibility
+- Clear state transitions

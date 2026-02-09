@@ -1,0 +1,357 @@
+Code Organization
+
+Next Dink – Code Structure & Organization Guidelines
+
+---
+
+CORE PRINCIPLES
+
+1. Clear View/Logic Separation
+   - Views handle rendering and user interaction
+   - Hooks handle business logic, state, and data fetching
+   - Services handle external API calls (Firebase)
+
+2. Component Reusability
+   - Use shared UI components for consistent styling
+   - Avoid raw HTML elements when a custom component exists
+   - Extract repeated patterns into reusable components
+
+3. Naming Conventions
+   - Views: ComponentNameView.tsx (e.g., EventDetailView.tsx)
+   - Components: ComponentName.tsx (e.g., EventCard.tsx, Button.tsx)
+   - Hooks: useHookName.ts (e.g., useEvent.ts, useAuth.ts)
+   - Services: serviceName.ts (e.g., eventService.ts, authService.ts)
+   - Types: types.ts or modelName.types.ts
+
+---
+
+PROJECT STRUCTURE
+
+/src
+  /components          # Shared reusable UI components
+    /ui                # Base UI primitives (Button, Input, Card, Badge, etc.)
+    /layout            # Layout components (PageLayout, BottomNav, Header)
+    /common            # Shared composite components (UserRow, EventCard, etc.)
+  
+  /views               # Page-level view components (*View.tsx)
+    /auth              # AuthView.tsx, LoginView.tsx, SignUpView.tsx
+    /home              # HomeView.tsx
+    /discover          # DiscoverView.tsx
+    /profile           # ProfileView.tsx, SettingsView.tsx
+    /event             # EventDetailView.tsx, CreateEventView.tsx, EditEventView.tsx
+    /list              # ListDetailView.tsx, CreateListView.tsx
+    /notifications     # NotificationsView.tsx
+  
+  /hooks               # Custom React hooks (business logic)
+    useAuth.ts         # Authentication state and actions
+    useUser.ts         # Current user data
+    useEvent.ts        # Single event operations
+    useEvents.ts       # Event list queries
+    useParticipants.ts # Event participants
+    useList.ts         # List operations
+    useNotifications.ts# Notifications
+    useTheme.ts        # Dark mode / theme
+  
+  /services            # Firebase service functions
+    authService.ts     # Firebase Auth operations
+    userService.ts     # User CRUD operations
+    eventService.ts    # Event CRUD operations
+    listService.ts     # List CRUD operations
+    notificationService.ts
+  
+  /types               # TypeScript type definitions
+    user.types.ts
+    event.types.ts
+    list.types.ts
+    notification.types.ts
+  
+  /utils               # Utility functions
+    avatarUtils.ts     # Deterministic avatar generation (identicon-style)
+    dateUtils.ts       # Date formatting helpers
+    validationUtils.ts # Form validation
+    locationUtils.ts   # Maps / location helpers
+  
+  /context             # React context providers
+    AuthContext.tsx
+    ThemeContext.tsx
+  
+  /config              # Configuration files
+    firebase.ts        # Firebase initialization
+    routes.ts          # Route definitions
+  
+  /styles              # Global styles
+    globals.css        # Tailwind imports, CSS variables
+
+---
+
+VIEW COMPONENT PATTERN
+
+Views are page-level components that:
+- Are named with "View" postfix (e.g., HomeView.tsx)
+- Compose UI from shared components
+- Delegate logic to custom hooks
+- Handle routing and navigation
+- Minimal business logic in the component itself
+
+Example structure:
+
+```tsx
+// views/event/EventDetailView.tsx
+
+import { useParams } from 'react-router-dom';
+import { useEvent } from '@/hooks/useEvent';
+import { useParticipants } from '@/hooks/useParticipants';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { EventHeader } from '@/components/common/EventHeader';
+import { ParticipantList } from '@/components/common/ParticipantList';
+import { Button } from '@/components/ui/Button';
+
+export function EventDetailView() {
+  const { eventId } = useParams();
+  const { event, isLappoading, error } = useEvent(eventId);
+  const { participants, join, leave } = useParticipants(eventId);
+
+  if (isLoading) return <PageLayout><Spinner /></PageLayout>;
+  if (error || !event) return <PageLayout><ErrorState /></PageLayout>;
+
+  return (
+    <PageLayout>
+      <EventHeader event={event} />
+      <ParticipantList participants={participants} />
+      <Button onClick={join}>Join Event</Button>
+    </PageLayout>
+  );
+}
+```
+
+---
+
+SHARED UI COMPONENTS
+
+Create base UI components to enforce design consistency.
+These wrap Tailwind classes and prevent raw HTML sprawl.
+
+Required base components in /components/ui:
+
+Button.tsx
+- Variants: primary, secondary, ghost
+- Sizes: default, small
+- States: loading, disabled
+
+Input.tsx
+- Text input with label
+- Error state styling
+
+Select.tsx
+- Dropdown with consistent styling
+
+Card.tsx
+- Base card container
+
+Badge.tsx
+- Status badges (Joined, Waitlisted, Pending, Canceled)
+- Role badges (Owner, Admin)
+
+CapacityBar.tsx
+- Visual capacity indicator
+
+Avatar.tsx
+- User profile photo from OAuth or generated identicon
+- Uses avatarUtils for deterministic generation based on userId
+- Shows OAuth photo when available, generated avatar otherwise
+
+Spinner.tsx
+- Loading indicator
+
+Modal.tsx
+- Dialog/modal wrapper
+
+EmptyState.tsx
+- Empty state with icon, title, description, CTA
+
+---
+
+SHARED COMPOSITE COMPONENTS
+
+Larger reusable components in /components/common:
+
+UserRow.tsx
+- Avatar + name + optional badge
+- Used in participant lists, member lists
+
+EventCard.tsx
+- Event summary card for lists
+- Name, date, time, venue, capacity
+
+EventHeader.tsx
+- Event detail page header
+- Name, date, organizer, status
+
+ParticipantList.tsx
+- Grouped list of participants
+- Sections: Joined, Invited, Waitlisted
+
+LocationDisplay.tsx
+- Venue name + address + tap to open maps
+
+DateTimeDisplay.tsx
+- Formatted date and time
+
+---
+
+HOOK PATTERN
+
+Hooks encapsulate all business logic:
+- Data fetching (React Query / SWR)
+- State management
+- Mutations (create, update, delete)
+- Loading and error states
+
+Example:
+
+```tsx
+// hooks/useEvent.ts
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { eventService } from '@/services/eventService';
+
+export function useEvent(eventId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  const { data: event, isLoading, error } = useQuery({
+    queryKey: ['event', eventId],
+    queryFn: () => eventService.getById(eventId!),
+    enabled: !!eventId,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: eventService.update,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+    },
+  });
+
+  return {
+    event,
+    isLoading,
+    error,
+    updateEvent: updateMutation.mutate,
+    isUpdating: updateMutation.isPending,
+  };
+}
+```
+
+---
+
+SERVICE PATTERN
+
+Services handle Firebase interactions:
+- Pure functions (no React hooks)
+- Return typed data
+- Handle Firestore queries and mutations
+
+Example:
+
+```tsx
+// services/eventService.ts
+
+import { db } from '@/config/firebase';
+import { collection, doc, getDoc, updateDoc } from 'firebase/firestore';
+import type { Event } from '@/types/event.types';
+
+export const eventService = {
+  async getById(eventId: string): Promise<Event | null> {
+    const docRef = doc(db, 'events', eventId);
+    const snapshot = await getDoc(docRef);
+    if (!snapshot.exists()) return null;
+    return { id: snapshot.id, ...snapshot.data() } as Event;
+  },
+
+  async update(eventId: string, data: Partial<Event>): Promise<void> {
+    const docRef = doc(db, 'events', eventId);
+    await updateDoc(docRef, { ...data, updatedAt: new Date() });
+  },
+};
+```
+
+---
+
+IMPORT ALIASES
+
+Use path aliases for cleaner imports:
+
+tsconfig.json:
+```json
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  }
+}
+```
+
+vite.config.ts:
+```ts
+resolve: {
+  alias: {
+    '@': path.resolve(__dirname, './src'),
+  },
+}
+```
+
+Usage:
+```tsx
+import { Button } from '@/components/ui/Button';
+import { useEvent } from '@/hooks/useEvent';
+```
+
+---
+
+FILE NAMING CONVENTIONS
+
+- Components: PascalCase.tsx (Button.tsx, EventCard.tsx)
+- Views: PascalCaseView.tsx (HomeView.tsx, EventDetailView.tsx)
+- Hooks: camelCase.ts with use prefix (useEvent.ts, useAuth.ts)
+- Services: camelCase.ts with Service suffix (eventService.ts)
+- Types: camelCase.types.ts (event.types.ts)
+- Utils: camelCase.ts (dateUtils.ts)
+
+---
+
+COMPONENT RULES
+
+1. Prefer custom components over raw HTML:
+   - Use <Button> not <button>
+   - Use <Card> not <div className="...">
+   - Use <Input> not <input>
+
+2. No inline Tailwind in Views:
+   - Styling should live in component definitions
+   - Views compose components, not styles
+
+3. Extract repeated UI patterns:
+   - If a pattern appears 2+ times, create a component
+   - Keep components single-purpose
+
+4. Props over children for simple content:
+   - <Button label="Submit" /> over <Button>Submit</Button>
+   - Use children for complex/flexible content
+
+5. Colocate related files:
+   - Component + its types + its tests in same folder if complex
+   - Keep simple components as single files
+
+---
+
+TESTING STRUCTURE
+
+/src
+  /components/ui/Button.test.tsx    # Unit tests colocated
+  /hooks/__tests__/useEvent.test.ts # Hook tests
+  /services/__tests__/eventService.test.ts
+
+Use testing library:
+- @testing-library/react for component tests
+- vitest for unit tests

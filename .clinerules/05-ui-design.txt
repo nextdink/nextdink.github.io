@@ -1,0 +1,310 @@
+UI Design
+
+Next Dink – Visual Design System (MVP)
+
+Design Philosophy: Simple, flat, aesthetic. Clean lines, generous whitespace, calm and functional.
+
+---
+
+DESIGN PRINCIPLES
+
+- Flat design — no shadows, no gradients, no 3D effects
+- Minimal color palette — neutrals with one accent color
+- Clean borders — subtle 1px borders instead of shadows
+- Generous whitespace — breathing room between elements
+- Simple shapes — consistent 8px border radius
+- Calm aesthetic — understated, functional elegance
+- Mobile-first — optimized for touch interfaces
+
+---
+
+COLOR PALETTE
+
+Using Tailwind's color system with teal as the accent color.
+
+Accent (Brand):
+- Light mode: teal-600 (#0d9488)
+- Dark mode: teal-400 (#2dd4bf)
+
+Backgrounds:
+- Light mode: white, slate-50
+- Dark mode: slate-950, slate-900
+
+Text:
+- Light mode primary: slate-900
+- Light mode secondary: slate-500
+- Dark mode primary: slate-50
+- Dark mode secondary: slate-400
+
+Borders:
+- Light mode: slate-200
+- Dark mode: slate-800
+
+Semantic Colors:
+- Success: emerald-600 / emerald-400
+- Warning: amber-600 / amber-400
+- Error: red-600 / red-400
+
+---
+
+TYPOGRAPHY
+
+Font Family: Inter
+Fallback: system-ui, -apple-system, sans-serif
+
+Load via Google Fonts or Fontsource:
+- Weights: 400 (normal), 500 (medium), 600 (semibold)
+
+Type Scale:
+- Page title: text-2xl (24px) font-semibold
+- Section title: text-lg (18px) font-semibold
+- Card title: text-base (16px) font-medium
+- Body: text-base (16px) font-normal
+- Secondary: text-sm (14px) font-normal text-slate-500
+- Caption: text-xs (12px) font-medium
+
+Line Height:
+- All text: leading-normal (1.5)
+
+---
+
+SPACING
+
+Base unit: 4px (Tailwind default)
+
+Layout spacing:
+- Page padding: px-4 py-6
+- Section gap: space-y-6
+- Card padding: p-4
+- Component gap: gap-3
+- Inline gap: gap-2
+
+Container:
+- Max width: max-w-lg (512px)
+- Centered: mx-auto
+
+---
+
+DARK MODE
+
+Implementation:
+- Tailwind dark: variant
+- Detect system preference with prefers-color-scheme
+- Store user override in localStorage
+- Apply dark class to html element
+
+User settings options:
+- System (default)
+- Light
+- Dark
+
+---
+
+COMPONENTS
+
+All components use flat design — no shadows.
+
+---
+
+Buttons
+
+Primary:
+- bg-teal-600 text-white
+- hover:bg-teal-700
+- dark:bg-teal-500 dark:text-slate-950 dark:hover:bg-teal-400
+- h-11 px-4 rounded-lg font-medium
+
+Secondary:
+- bg-slate-100 text-slate-900
+- hover:bg-slate-200
+- dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700
+- h-11 px-4 rounded-lg font-medium
+
+Ghost:
+- bg-transparent text-slate-600
+- hover:bg-slate-100
+- dark:text-slate-400 dark:hover:bg-slate-800
+- h-11 px-4 rounded-lg font-medium
+
+Disabled:
+- opacity-50 cursor-not-allowed
+
+Button sizes:
+- Default: h-11 (44px) — meets touch target minimum
+- Small: h-9 (36px) text-sm
+
+---
+
+Cards
+
+Base card:
+- bg-white dark:bg-slate-900
+- border border-slate-200 dark:border-slate-800
+- rounded-lg p-4
+
+Event card:
+- Base card styles
+- No hover effects (tappable, not hoverable)
+
+---
+
+Inputs
+
+Text input:
+- bg-white dark:bg-slate-900
+- border border-slate-200 dark:border-slate-800
+- rounded-lg h-11 px-3
+- placeholder:text-slate-400 dark:placeholder:text-slate-500
+- focus:border-teal-600 focus:outline-none dark:focus:border-teal-400
+
+Select / Dropdown:
+- Same as text input
+- Custom chevron icon
+
+---
+
+Badges
+
+Base badge:
+- text-xs font-medium px-2 py-1 rounded-md
+
+Status badges (light mode):
+- Joined: bg-emerald-50 text-emerald-700 border border-emerald-200
+- Waitlisted: bg-amber-50 text-amber-700 border border-amber-200
+- Pending: bg-slate-50 text-slate-600 border border-slate-200
+- Canceled: bg-red-50 text-red-700 border border-red-200
+
+Status badges (dark mode):
+- Joined: bg-emerald-950 text-emerald-400 border border-emerald-800
+- Waitlisted: bg-amber-950 text-amber-400 border border-amber-800
+- Pending: bg-slate-800 text-slate-400 border border-slate-700
+- Canceled: bg-red-950 text-red-400 border border-red-800
+
+Role badges:
+- Owner: bg-teal-50 text-teal-700 border border-teal-200
+- Admin: bg-purple-50 text-purple-700 border border-purple-200
+- Dark mode: invert pattern as above
+
+---
+
+Capacity Bar
+
+Container:
+- bg-slate-100 dark:bg-slate-800
+- h-2 rounded-full
+
+Fill:
+- bg-teal-600 dark:bg-teal-400
+- rounded-full
+- Width percentage based on capacity
+
+---
+
+Bottom Navigation
+
+Container:
+- bg-white dark:bg-slate-900
+- border-t border-slate-200 dark:border-slate-800
+- h-16 fixed bottom-0 w-full
+
+Nav item:
+- flex flex-col items-center justify-center
+- text-xs font-medium
+- Inactive: text-slate-400
+- Active: text-teal-600 dark:text-teal-400
+
+---
+
+Modals
+
+Backdrop:
+- bg-black/40
+
+Content:
+- bg-white dark:bg-slate-900
+- border border-slate-200 dark:border-slate-800
+- rounded-lg p-6
+- max-w-sm mx-4
+
+---
+
+Lists
+
+List item:
+- py-3 border-b border-slate-100 dark:border-slate-800
+- Last item: no border
+
+---
+
+ICONOGRAPHY
+
+Library: Lucide React
+Style: Outline, stroke-width 1.5
+
+Sizes:
+- Navigation: w-6 h-6 (24px)
+- Inline: w-5 h-5 (20px)
+- Small: w-4 h-4 (16px)
+
+Icon colors follow text colors.
+
+---
+
+LOADING STATES
+
+Simple approach — no skeleton screens.
+
+Page loading:
+- Centered spinner (teal color)
+- animate-spin
+
+Button loading:
+- Replace text with spinner
+- Maintain button width
+
+Inline loading:
+- Small spinner next to text
+
+---
+
+EMPTY STATES
+
+Centered layout:
+- Icon (w-12 h-12, slate-300)
+- Title (text-lg font-medium)
+- Description (text-sm text-slate-500)
+- Optional CTA button
+
+---
+
+TRANSITIONS
+
+Keep minimal:
+- Color transitions: transition-colors duration-150
+- No scale or transform effects
+- No elaborate animations
+
+Respect prefers-reduced-motion:
+- Disable non-essential animations
+
+---
+
+ACCESSIBILITY
+
+- Touch targets: minimum 44x44px
+- Color contrast: WCAG AA compliant
+- Focus states: outline-none ring-2 ring-teal-600 ring-offset-2
+- Semantic HTML elements
+- ARIA labels where needed
+
+---
+
+RESPONSIVE
+
+Mobile-first using Tailwind breakpoints:
+- Base: < 640px (primary target)
+- sm: 640px+
+- md: 768px+
+
+No complex desktop layouts for MVP.
+Optimize for single-column mobile view.
