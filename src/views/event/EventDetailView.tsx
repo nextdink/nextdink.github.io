@@ -12,10 +12,10 @@ import {
   UserPlus,
   UserRoundPlus,
   Trash2,
-  LogOut,
   Copy,
 } from "lucide-react";
 import { PageLayout } from "@/components/layout/PageLayout";
+import { DropdownMenu } from "@/components/ui/DropdownMenu";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -35,7 +35,7 @@ import {
   isTeamCaptain,
 } from "@/types/event.types";
 import type { TeamMember } from "@/types/event.types";
-import { ROUTES } from "@/config/routes";
+import { ROUTES, getEditEventRoute } from "@/config/routes";
 
 export function EventDetailView() {
   const { eventCode } = useParams<{ eventCode: string }>();
@@ -58,6 +58,7 @@ export function EventDetailView() {
     registerTeam,
     addGuestTeam,
     leaveEvent,
+    declineEvent,
     claimSlot,
     declineInvitation,
     deleteEvent,
@@ -65,6 +66,7 @@ export function EventDetailView() {
     isAddingGuestTeam,
     isClaiming,
     isDeclining,
+    isDecliningEvent,
     isDeleting,
   } = useEvent(
     eventCode,
@@ -139,8 +141,11 @@ export function EventDetailView() {
   // Join handler
   const handleJoin = async () => {
     if (!user) {
-      // TODO: Show auth modal
-      navigate(ROUTES.LOGIN);
+      // Redirect to login with return URL (don't auto-join after auth)
+      const returnUrl = encodeURIComponent(
+        window.location.pathname + window.location.hash,
+      );
+      navigate(`${ROUTES.LOGIN}?redirect=${returnUrl}`);
       return;
     }
 
@@ -169,7 +174,22 @@ export function EventDetailView() {
     }
   };
 
-  // Leave handler
+  // Decline handler (removes registration and adds to declined list)
+  const handleDecline = async () => {
+    if (
+      confirm(
+        "Are you sure you want to decline this event? You will be removed from the roster and added to the declined list.",
+      )
+    ) {
+      try {
+        await declineEvent();
+      } catch (err) {
+        console.error("Failed to decline:", err);
+      }
+    }
+  };
+
+  // Leave handler (for RegistrationCard - just removes without declining)
   const handleLeave = async () => {
     if (confirm("Are you sure you want to leave this event?")) {
       try {
@@ -207,19 +227,24 @@ export function EventDetailView() {
   // Share handler
   const handleShare = async () => {
     const url = window.location.href;
+    const dateStr = format(event.date, "EEEE, MMM d");
+    const timeStr = format(event.date, "h:mm a");
+    const shareText = `Next Dink invite: ${event.name} on ${dateStr} at ${timeStr}. Event code: ${event.eventCode}`;
+
     if (navigator.share) {
       try {
         await navigator.share({
           title: event.name,
-          text: `Join ${event.name} on ${format(event.date, "MMM d")}`,
+          text: shareText,
           url,
         });
       } catch {
         // User canceled or share failed
       }
     } else {
-      // Fallback to clipboard
-      await navigator.clipboard.writeText(url);
+      // Fallback to clipboard - include URL in the text
+      const clipboardText = `${shareText}\n${url}`;
+      await navigator.clipboard.writeText(clipboardText);
       alert("Link copied to clipboard!");
     }
   };
@@ -248,6 +273,40 @@ export function EventDetailView() {
       }
     }
   };
+
+  // Check if user has declined this event
+  const hasDeclined = user?.uid && event.declinedUserIds.includes(user.uid);
+
+  // Build menu items for admin dropdown
+  const menuItems = canManage
+    ? [
+        {
+          label: "Edit Event",
+          icon: <Edit className="w-4 h-4" />,
+          onClick: () => eventCode && navigate(getEditEventRoute(eventCode)),
+        },
+        {
+          label: "Invite Players",
+          icon: <UserPlus className="w-4 h-4" />,
+          onClick: () => setShowInviteModal(true),
+        },
+        {
+          label: "Add Guest Team",
+          icon: <UserRoundPlus className="w-4 h-4" />,
+          onClick: () => setShowAddGuestModal(true),
+        },
+        ...(isOwner
+          ? [
+              {
+                label: "Delete Event",
+                icon: <Trash2 className="w-4 h-4" />,
+                onClick: handleDelete,
+                variant: "danger" as const,
+              },
+            ]
+          : []),
+      ]
+    : [];
 
   return (
     <PageLayout showBack showBottomNav={false}>
@@ -278,55 +337,61 @@ export function EventDetailView() {
           </div>
         </div>
 
-        {/* Quick Actions */}
+        {/* Action Buttons */}
         <div className="flex gap-2">
+          {/* Show Join button if not registered */}
           {!isUserRegistered && (
             <Button
               onClick={handleJoin}
               className="flex-1"
               loading={isRegistering}
             >
-              <UserPlus className="w-4 h-4" />
               {hasCapacity ? "Join Event" : "Join Waitlist"}
             </Button>
           )}
+
+          {/* Show Decline button if not registered and not already declined */}
+          {!isUserRegistered && !hasDeclined && (
+            <Button
+              variant="secondary"
+              onClick={async () => {
+                if (confirm("Are you sure you want to decline this event?")) {
+                  try {
+                    await declineInvitation();
+                  } catch (err) {
+                    console.error("Failed to decline:", err);
+                  }
+                }
+              }}
+              loading={isDeclining}
+            >
+              Decline
+            </Button>
+          )}
+
+          {/* Show Decline button if already registered (to leave) */}
           {isUserRegistered && (
             <Button
               variant="secondary"
-              onClick={handleLeave}
+              onClick={handleDecline}
               className="flex-1"
+              loading={isDecliningEvent}
             >
-              <LogOut className="w-4 h-4" />
-              Leave Event
+              Decline
             </Button>
           )}
-          {canManage && (
-            <Button
-              variant="secondary"
-              onClick={() => setShowAddGuestModal(true)}
-            >
-              <UserRoundPlus className="w-4 h-4" />
-            </Button>
-          )}
-          {canManage && (
-            <Button
-              variant="secondary"
-              onClick={() => setShowInviteModal(true)}
-            >
-              <UserPlus className="w-4 h-4" />
-            </Button>
-          )}
-          <Button variant="secondary" onClick={handleShare}>
+
+          {/* Share button */}
+          <Button
+            variant="secondary"
+            onClick={handleShare}
+            aria-label="Share event"
+          >
             <Share className="w-4 h-4" />
           </Button>
-          {canManage && (
-            <Button
-              variant="secondary"
-              onClick={() => navigate(`/event/${eventCode}/edit`)}
-            >
-              <Edit className="w-4 h-4" />
-            </Button>
-          )}
+
+          {/* Menu button for admins/owners */}
+          {canManage && <DropdownMenu items={menuItems} />}
         </div>
 
         {/* Event Details Card */}
@@ -490,176 +555,170 @@ export function EventDetailView() {
         )}
 
         {/* Secondary Tab Section (Invited / Waitlist / Declined) */}
-        {(invitedUsers.length > 0 ||
-          waitlistedRegistrations.length > 0 ||
-          declinedUsers.length > 0 ||
-          isLoadingInvitedUsers ||
-          isLoadingDeclinedUsers) && (
-          <section>
-            {/* Tab Buttons */}
-            <div className="flex gap-1 mb-3 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
-              <button
-                onClick={() => setSecondaryTab("invited")}
-                className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
-                  secondaryTab === "invited"
-                    ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
-                }`}
-              >
-                Invited ({invitedUsers.length})
-              </button>
-              <button
-                onClick={() => setSecondaryTab("waitlist")}
-                className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
-                  secondaryTab === "waitlist"
-                    ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
-                }`}
-              >
-                Waitlist ({waitlistedRegistrations.length})
-              </button>
-              <button
-                onClick={() => setSecondaryTab("declined")}
-                className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
-                  secondaryTab === "declined"
-                    ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
-                }`}
-              >
-                Declined ({declinedUsers.length})
-              </button>
-            </div>
+        <section>
+          {/* Tab Buttons */}
+          <div className="flex gap-1 mb-3 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
+            <button
+              onClick={() => setSecondaryTab("invited")}
+              className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
+                secondaryTab === "invited"
+                  ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+              }`}
+            >
+              Invited ({invitedUsers.length})
+            </button>
+            <button
+              onClick={() => setSecondaryTab("waitlist")}
+              className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
+                secondaryTab === "waitlist"
+                  ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+              }`}
+            >
+              Waitlist ({waitlistedRegistrations.length})
+            </button>
+            <button
+              onClick={() => setSecondaryTab("declined")}
+              className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
+                secondaryTab === "declined"
+                  ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+              }`}
+            >
+              Declined ({declinedUsers.length})
+            </button>
+          </div>
 
-            {/* Tab Content */}
-            {secondaryTab === "invited" &&
-              (isLoadingInvitedUsers ? (
-                <Card>
-                  <div className="flex items-center justify-center py-4">
-                    <Spinner />
-                  </div>
-                </Card>
-              ) : invitedUsers.length > 0 ? (
-                <Card>
-                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {invitedUsers.map((invitedUser) => (
-                      <div
-                        key={invitedUser.id}
-                        className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
-                      >
-                        {invitedUser.photoUrl ? (
-                          <img
-                            src={invitedUser.photoUrl}
-                            alt={invitedUser.displayName}
-                            className="w-8 h-8 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
-                            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                              {invitedUser.displayName.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                            {invitedUser.displayName}
-                          </p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Invitation pending
-                          </p>
+          {/* Tab Content */}
+          {secondaryTab === "invited" &&
+            (isLoadingInvitedUsers ? (
+              <Card>
+                <div className="flex items-center justify-center py-4">
+                  <Spinner />
+                </div>
+              </Card>
+            ) : invitedUsers.length > 0 ? (
+              <Card>
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {invitedUsers.map((invitedUser) => (
+                    <div
+                      key={invitedUser.id}
+                      className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+                    >
+                      {invitedUser.photoUrl ? (
+                        <img
+                          src={invitedUser.photoUrl}
+                          alt={invitedUser.displayName}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+                          <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                            {invitedUser.displayName.charAt(0).toUpperCase()}
+                          </span>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              ) : (
-                <Card>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
-                    No pending invitations
-                  </p>
-                </Card>
-              ))}
-
-            {secondaryTab === "waitlist" &&
-              (waitlistedRegistrations.length > 0 ? (
-                <div className="space-y-3">
-                  {waitlistedRegistrations.map((registration, index) => (
-                    <RegistrationCard
-                      key={registration.id}
-                      registration={registration}
-                      teamSize={event.teamSize}
-                      isCurrentUserCaptain={
-                        user ? isTeamCaptain(registration, user.uid) : false
-                      }
-                      isCurrentUserInTeam={registration.members.some(
-                        (m) => m.type === "user" && m.userId === user?.uid,
                       )}
-                      canClaimSlot={false}
-                      waitlistPosition={index + 1}
-                      onLeaveTeam={
-                        user && isTeamCaptain(registration, user.uid)
-                          ? handleLeave
-                          : undefined
-                      }
-                    />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                          {invitedUser.displayName}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Invitation pending
+                        </p>
+                      </div>
+                    </div>
                   ))}
                 </div>
-              ) : (
-                <Card>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
-                    No one on the waitlist
-                  </p>
-                </Card>
-              ))}
+              </Card>
+            ) : (
+              <Card>
+                <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
+                  No pending invitations
+                </p>
+              </Card>
+            ))}
 
-            {secondaryTab === "declined" &&
-              (isLoadingDeclinedUsers ? (
-                <Card>
-                  <div className="flex items-center justify-center py-4">
-                    <Spinner />
-                  </div>
-                </Card>
-              ) : declinedUsers.length > 0 ? (
-                <Card>
-                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {declinedUsers.map((declinedUser) => (
-                      <div
-                        key={declinedUser.id}
-                        className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
-                      >
-                        {declinedUser.photoUrl ? (
-                          <img
-                            src={declinedUser.photoUrl}
-                            alt={declinedUser.displayName}
-                            className="w-8 h-8 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
-                            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                              {declinedUser.displayName.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                            {declinedUser.displayName}
-                          </p>
-                          <p className="text-xs text-red-500 dark:text-red-400">
-                            Declined invitation
-                          </p>
+          {secondaryTab === "waitlist" &&
+            (waitlistedRegistrations.length > 0 ? (
+              <div className="space-y-3">
+                {waitlistedRegistrations.map((registration, index) => (
+                  <RegistrationCard
+                    key={registration.id}
+                    registration={registration}
+                    teamSize={event.teamSize}
+                    isCurrentUserCaptain={
+                      user ? isTeamCaptain(registration, user.uid) : false
+                    }
+                    isCurrentUserInTeam={registration.members.some(
+                      (m) => m.type === "user" && m.userId === user?.uid,
+                    )}
+                    canClaimSlot={false}
+                    waitlistPosition={index + 1}
+                    onLeaveTeam={
+                      user && isTeamCaptain(registration, user.uid)
+                        ? handleLeave
+                        : undefined
+                    }
+                  />
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
+                  No one on the waitlist
+                </p>
+              </Card>
+            ))}
+
+          {secondaryTab === "declined" &&
+            (isLoadingDeclinedUsers ? (
+              <Card>
+                <div className="flex items-center justify-center py-4">
+                  <Spinner />
+                </div>
+              </Card>
+            ) : declinedUsers.length > 0 ? (
+              <Card>
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {declinedUsers.map((declinedUser) => (
+                    <div
+                      key={declinedUser.id}
+                      className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+                    >
+                      {declinedUser.photoUrl ? (
+                        <img
+                          src={declinedUser.photoUrl}
+                          alt={declinedUser.displayName}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+                          <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                            {declinedUser.displayName.charAt(0).toUpperCase()}
+                          </span>
                         </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                          {declinedUser.displayName}
+                        </p>
+                        <p className="text-xs text-red-500 dark:text-red-400">
+                          Declined invitation
+                        </p>
                       </div>
-                    ))}
-                  </div>
-                </Card>
-              ) : (
-                <Card>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
-                    No declined invitations
-                  </p>
-                </Card>
-              ))}
-          </section>
-        )}
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            ) : (
+              <Card>
+                <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
+                  No declined invitations
+                </p>
+              </Card>
+            ))}
+        </section>
 
         {/* Danger Zone - Delete Event (owner only) */}
         {isOwner && (

@@ -37,6 +37,7 @@ interface UseEventResult {
     guestNames: string[],
   ) => Promise<{ status: "joined" | "waitlisted" }>;
   leaveEvent: () => Promise<void>;
+  declineEvent: () => Promise<void>;
   claimSlot: (
     teamId: string,
     memberIndex: number,
@@ -46,6 +47,7 @@ interface UseEventResult {
   isRegistering: boolean;
   isAddingGuestTeam: boolean;
   isLeaving: boolean;
+  isDecliningEvent: boolean;
   isClaiming: boolean;
   isDeclining: boolean;
   isDeleting: boolean;
@@ -66,6 +68,7 @@ export function useEvent(
   const [isClaiming, setIsClaiming] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeclining, setIsDeclining] = useState(false);
+  const [isDecliningEvent, setIsDecliningEvent] = useState(false);
   const [invitedUsers, setInvitedUsers] = useState<UserProfile[]>([]);
   const [isLoadingInvitedUsers, setIsLoadingInvitedUsers] = useState(false);
   const [declinedUsers, setDeclinedUsers] = useState<UserProfile[]>([]);
@@ -218,6 +221,21 @@ export function useEvent(
     }
   }, [event, userId, fetchEvent]);
 
+  // Decline the event (removes registration and adds to declined list)
+  const declineEvent = useCallback(async () => {
+    if (!event || !userId) {
+      throw new Error("Not authenticated");
+    }
+
+    setIsDecliningEvent(true);
+    try {
+      await eventService.declineEvent(event.id, userId);
+      await fetchEvent(); // Refresh event data
+    } finally {
+      setIsDecliningEvent(false);
+    }
+  }, [event, userId, fetchEvent]);
+
   // Claim a slot in an existing team
   const claimSlot = useCallback(
     async (teamId: string, memberIndex: number) => {
@@ -315,12 +333,14 @@ export function useEvent(
     registerTeam,
     addGuestTeam,
     leaveEvent,
+    declineEvent,
     claimSlot,
     declineInvitation,
     deleteEvent,
     isRegistering,
     isAddingGuestTeam,
     isLeaving,
+    isDecliningEvent,
     isClaiming,
     isDeclining,
     isDeleting,

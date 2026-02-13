@@ -1,26 +1,33 @@
-import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, Trash2, UserMinus, Shield, ShieldOff, Edit2 } from 'lucide-react';
-import { PageLayout } from '@/components/layout/PageLayout';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { Spinner } from '@/components/ui/Spinner';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { Modal, ConfirmModal } from '@/components/ui/Modal';
-import { Input } from '@/components/ui/Input';
-import { Avatar } from '@/components/ui/Avatar';
-import { RoleBadge } from '@/components/ui/Badge';
-import { UserSearchModal } from '@/components/ui/UserSearchModal';
-import { useAuth } from '@/hooks/useAuth';
-import { useList } from '@/hooks/useList';
-import { ROUTES } from '@/config/routes';
-import type { UserProfile } from '@/types/user.types';
+import { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  Plus,
+  Trash2,
+  UserMinus,
+  Shield,
+  ShieldOff,
+  Edit2,
+} from "lucide-react";
+import { PageLayout } from "@/components/layout/PageLayout";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Spinner } from "@/components/ui/Spinner";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Modal, ConfirmModal } from "@/components/ui/Modal";
+import { Input } from "@/components/ui/Input";
+import { Avatar } from "@/components/ui/Avatar";
+import { RoleBadge } from "@/components/ui/Badge";
+import { UserSearchModal } from "@/components/ui/UserSearchModal";
+import { useAuth } from "@/hooks/useAuth";
+import { useList } from "@/hooks/useList";
+import { ROUTES } from "@/config/routes";
+import type { UserProfile } from "@/types/user.types";
 
 export function ListDetailView() {
   const { listId } = useParams<{ listId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  
+
   const {
     list,
     members,
@@ -40,11 +47,16 @@ export function ListDetailView() {
   const [showAddMember, setShowAddMember] = useState(false);
   const [showEditName, setShowEditName] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showRemoveConfirm, setShowRemoveConfirm] = useState<string | null>(null);
-  const [showPromoteAdminConfirm, setShowPromoteAdminConfirm] = useState<{ id: string; name: string } | null>(null);
-  
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState<string | null>(
+    null,
+  );
+  const [showPromoteAdminConfirm, setShowPromoteAdminConfirm] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
   // Form states
-  const [editName, setEditName] = useState('');
+  const [editName, setEditName] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -54,7 +66,9 @@ export function ListDetailView() {
     try {
       await addMember(selectedUser.id);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to add member');
+      setActionError(
+        err instanceof Error ? err.message : "Failed to add member",
+      );
     }
   };
 
@@ -64,7 +78,9 @@ export function ListDetailView() {
       await removeMember(userId);
       setShowRemoveConfirm(null);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to remove member');
+      setActionError(
+        err instanceof Error ? err.message : "Failed to remove member",
+      );
     }
   };
 
@@ -74,7 +90,9 @@ export function ListDetailView() {
       await addAdmin(userId);
       setShowPromoteAdminConfirm(null);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to promote to admin');
+      setActionError(
+        err instanceof Error ? err.message : "Failed to promote to admin",
+      );
     }
   };
 
@@ -83,20 +101,24 @@ export function ListDetailView() {
     try {
       await removeAdmin(userId);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to remove admin status');
+      setActionError(
+        err instanceof Error ? err.message : "Failed to remove admin status",
+      );
     }
   };
 
   const handleUpdateName = async () => {
     if (!editName.trim()) return;
-    
+
     setIsUpdating(true);
     setActionError(null);
     try {
       await updateList(editName.trim());
       setShowEditName(false);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to update list name');
+      setActionError(
+        err instanceof Error ? err.message : "Failed to update list name",
+      );
     } finally {
       setIsUpdating(false);
     }
@@ -109,18 +131,20 @@ export function ListDetailView() {
       await deleteList();
       navigate(ROUTES.LISTS, { replace: true });
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to delete list');
+      setActionError(
+        err instanceof Error ? err.message : "Failed to delete list",
+      );
       setIsDeleting(false);
     }
   };
 
   const openEditName = () => {
-    setEditName(list?.name || '');
+    setEditName(list?.name || "");
     setShowEditName(true);
   };
 
   // Get member IDs for exclusion in search
-  const existingMemberIds = members.map(m => m.id);
+  const existingMemberIds = members.map((m) => m.id);
 
   if (isLoading) {
     return (
@@ -137,7 +161,7 @@ export function ListDetailView() {
       <PageLayout showBack showBottomNav={false}>
         <div className="text-center py-12">
           <p className="text-red-600 dark:text-red-400">
-            {error?.message || 'List not found'}
+            {error?.message || "List not found"}
           </p>
           <Button onClick={() => navigate(ROUTES.LISTS)} className="mt-4">
             Back to Lists
@@ -153,7 +177,9 @@ export function ListDetailView() {
         {/* Error display */}
         {actionError && (
           <div className="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-sm text-red-700 dark:text-red-400">{actionError}</p>
+            <p className="text-sm text-red-700 dark:text-red-400">
+              {actionError}
+            </p>
           </div>
         )}
 
@@ -165,7 +191,7 @@ export function ListDetailView() {
                 {list.name}
               </h2>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                {members.length} {members.length === 1 ? 'member' : 'members'}
+                {members.length} {members.length === 1 ? "member" : "members"}
               </p>
             </div>
             {isOwner && (
@@ -207,12 +233,9 @@ export function ListDetailView() {
             <Card className="divide-y divide-slate-100 dark:divide-slate-800 p-0">
               {members.map((member) => {
                 const isMemberAdmin = list.adminIds.includes(member.id);
-                
+
                 return (
-                  <div
-                    key={member.id}
-                    className="flex items-center gap-3 p-4"
-                  >
+                  <div key={member.id} className="flex items-center gap-3 p-4">
                     <Avatar
                       src={member.photoUrl}
                       userId={member.id}
@@ -224,29 +247,38 @@ export function ListDetailView() {
                         <span className="text-base font-medium text-slate-900 dark:text-slate-100 truncate">
                           {member.displayName}
                         </span>
-                        {isMemberAdmin && <RoleBadge role="admin" />}
+                        {member.id === list.ownerId ? (
+                          <RoleBadge role="owner" />
+                        ) : isMemberAdmin ? (
+                          <RoleBadge role="admin" />
+                        ) : null}
                       </div>
                     </div>
-                    
+
                     {/* Actions */}
                     {canManage && (
                       <div className="flex items-center gap-1">
-                        {/* Toggle admin (owner only) */}
-                        {isOwner && (
+                        {/* Toggle admin (owner only, and not for the owner themselves) */}
+                        {isOwner && member.id !== list.ownerId && (
                           <button
                             onClick={() => {
                               if (isMemberAdmin) {
                                 handleDemoteAdmin(member.id);
                               } else {
-                                setShowPromoteAdminConfirm({ id: member.id, name: member.displayName });
+                                setShowPromoteAdminConfirm({
+                                  id: member.id,
+                                  name: member.displayName,
+                                });
                               }
                             }}
                             className={`p-2 rounded-lg transition-colors ${
                               isMemberAdmin
-                                ? 'text-purple-500 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950'
-                                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                ? "text-purple-500 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950"
+                                : "text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
                             }`}
-                            title={isMemberAdmin ? 'Remove admin' : 'Make admin'}
+                            title={
+                              isMemberAdmin ? "Remove admin" : "Make admin"
+                            }
                           >
                             {isMemberAdmin ? (
                               <ShieldOff className="w-4 h-4" />
@@ -255,15 +287,17 @@ export function ListDetailView() {
                             )}
                           </button>
                         )}
-                        
-                        {/* Remove member */}
-                        <button
-                          onClick={() => setShowRemoveConfirm(member.id)}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 rounded-lg transition-colors"
-                          title="Remove member"
-                        >
-                          <UserMinus className="w-4 h-4" />
-                        </button>
+
+                        {/* Remove member (not for the owner themselves) */}
+                        {member.id !== list.ownerId && (
+                          <button
+                            onClick={() => setShowRemoveConfirm(member.id)}
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 rounded-lg transition-colors"
+                            title="Remove member"
+                          >
+                            <UserMinus className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -277,7 +311,7 @@ export function ListDetailView() {
               action={
                 canManage
                   ? {
-                      label: 'Add Member',
+                      label: "Add Member",
                       onClick: () => setShowAddMember(true),
                     }
                   : undefined
@@ -297,7 +331,11 @@ export function ListDetailView() {
       />
 
       {/* Edit Name Modal */}
-      <Modal isOpen={showEditName} onClose={() => setShowEditName(false)} title="Edit List Name">
+      <Modal
+        isOpen={showEditName}
+        onClose={() => setShowEditName(false)}
+        title="Edit List Name"
+      >
         <div className="space-y-4">
           <Input
             label="List Name"
@@ -306,10 +344,18 @@ export function ListDetailView() {
             placeholder="Enter list name"
           />
           <div className="flex gap-3">
-            <Button variant="secondary" onClick={() => setShowEditName(false)} className="flex-1">
+            <Button
+              variant="secondary"
+              onClick={() => setShowEditName(false)}
+              className="flex-1"
+            >
               Cancel
             </Button>
-            <Button onClick={handleUpdateName} loading={isUpdating} className="flex-1">
+            <Button
+              onClick={handleUpdateName}
+              loading={isUpdating}
+              className="flex-1"
+            >
               Save
             </Button>
           </div>
@@ -332,7 +378,9 @@ export function ListDetailView() {
       <ConfirmModal
         isOpen={!!showRemoveConfirm}
         onClose={() => setShowRemoveConfirm(null)}
-        onConfirm={() => showRemoveConfirm && handleRemoveMember(showRemoveConfirm)}
+        onConfirm={() =>
+          showRemoveConfirm && handleRemoveMember(showRemoveConfirm)
+        }
         title="Remove Member"
         message="Are you sure you want to remove this member from the list?"
         confirmLabel="Remove"
@@ -343,9 +391,12 @@ export function ListDetailView() {
       <ConfirmModal
         isOpen={!!showPromoteAdminConfirm}
         onClose={() => setShowPromoteAdminConfirm(null)}
-        onConfirm={() => showPromoteAdminConfirm && handlePromoteToAdmin(showPromoteAdminConfirm.id)}
+        onConfirm={() =>
+          showPromoteAdminConfirm &&
+          handlePromoteToAdmin(showPromoteAdminConfirm.id)
+        }
         title="Make Admin"
-        message={`Are you sure you want to make ${showPromoteAdminConfirm?.name || 'this member'} an admin? They will be able to view the list and add or remove members.`}
+        message={`Are you sure you want to make ${showPromoteAdminConfirm?.name || "this member"} an admin? They will be able to view the list and add or remove members.`}
         confirmLabel="Make Admin"
         variant="default"
       />

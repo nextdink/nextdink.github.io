@@ -1,40 +1,42 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { SimpleLayout } from '@/components/layout/PageLayout';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { ROUTES } from '@/config/routes';
+import { useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { SimpleLayout } from "@/components/layout/PageLayout";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { ROUTES } from "@/config/routes";
 
 export function LoginView() {
   const { signInWithEmail, signInWithGoogle } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [searchParams] = useSearchParams();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
       await signInWithEmail(email, password);
-    } catch (err) {
-      setError('Invalid email or password');
+    } catch {
+      setError("Invalid email or password");
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogleLogin = async () => {
-    setError('');
+    setError("");
     try {
       await signInWithGoogle();
     } catch (err) {
-      console.error('Google login error:', err);
+      console.error("Google login error:", err);
       // Show the actual error message for debugging
-      const errorMessage = err instanceof Error ? err.message : 'Failed to sign in with Google';
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to sign in with Google";
       setError(errorMessage);
     }
   };
@@ -67,7 +69,7 @@ export function LoginView() {
           placeholder="••••••••"
           required
         />
-        
+
         {error && (
           <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         )}
@@ -100,9 +102,9 @@ export function LoginView() {
       </div>
 
       <p className="text-center text-sm text-slate-600 dark:text-slate-400">
-        Don't have an account?{' '}
+        Don't have an account?{" "}
         <Link
-          to={ROUTES.SIGNUP}
+          to={`${ROUTES.SIGNUP}${searchParams.get("redirect") ? `?redirect=${searchParams.get("redirect")}` : ""}`}
           className="text-primary-600 dark:text-primary-400 font-medium hover:underline"
         >
           Sign up

@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell } from 'lucide-react';
-import { BottomNav } from './BottomNav';
-import { ROUTES } from '@/config/routes';
+import type { ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Bell } from "lucide-react";
+import { BottomNav } from "./BottomNav";
+import { ROUTES } from "@/config/routes";
 
 interface PageLayoutProps {
   children: ReactNode;
@@ -10,6 +10,7 @@ interface PageLayoutProps {
   showBack?: boolean;
   showBottomNav?: boolean;
   showNotifications?: boolean;
+  headerActions?: ReactNode;
   className?: string;
 }
 
@@ -19,7 +20,8 @@ export function PageLayout({
   showBack = false,
   showBottomNav = true,
   showNotifications = true,
-  className = '',
+  headerActions,
+  className = "",
 }: PageLayoutProps) {
   const navigate = useNavigate();
 
@@ -42,28 +44,33 @@ export function PageLayout({
                 <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                   {title}
                 </h1>
-              ) : !showBack && (
-                <span className="text-xl font-bold text-primary-600 dark:text-primary-400">
-                  Next Dink
-                </span>
+              ) : (
+                !showBack && (
+                  <span className="text-xl font-bold text-primary-600 dark:text-primary-400">
+                    Next Dink
+                  </span>
+                )
               )}
             </div>
-            {showNotifications && (
-              <button
-                onClick={() => navigate(ROUTES.NOTIFICATIONS)}
-                className="p-2 -mr-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg relative"
-              >
-                <Bell className="w-5 h-5" />
-                {/* Notification badge - would be conditional in real app */}
-                {/* <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" /> */}
-              </button>
-            )}
+            <div className="flex items-center gap-1">
+              {headerActions}
+              {showNotifications && !headerActions && (
+                <button
+                  onClick={() => navigate(ROUTES.NOTIFICATIONS)}
+                  className="p-2 -mr-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg relative"
+                >
+                  <Bell className="w-5 h-5" />
+                </button>
+              )}
+            </div>
           </div>
         </header>
       )}
 
       {/* Main content */}
-      <main className={`max-w-lg mx-auto px-4 py-6 ${showBottomNav ? 'pb-24' : ''} ${className}`}>
+      <main
+        className={`max-w-lg mx-auto px-4 py-6 ${showBottomNav ? "pb-24" : ""} ${className}`}
+      >
         {children}
       </main>
 
@@ -79,12 +86,10 @@ interface SimpleLayoutProps {
   className?: string;
 }
 
-export function SimpleLayout({ children, className = '' }: SimpleLayoutProps) {
+export function SimpleLayout({ children, className = "" }: SimpleLayoutProps) {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-4">
-      <div className={`w-full max-w-sm ${className}`}>
-        {children}
-      </div>
+      <div className={`w-full max-w-sm ${className}`}>{children}</div>
     </div>
   );
 }

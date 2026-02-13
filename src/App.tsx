@@ -1,24 +1,30 @@
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider } from '@/context/AuthProvider';
-import { ThemeProvider } from '@/context/ThemeProvider';
-import { useAuth } from '@/hooks/useAuth';
-import { ROUTES } from '@/config/routes';
-import { PageSpinner } from '@/components/ui/Spinner';
+import {
+  HashRouter,
+  Routes,
+  Route,
+  Navigate,
+  useSearchParams,
+} from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AuthProvider } from "@/context/AuthProvider";
+import { ThemeProvider } from "@/context/ThemeProvider";
+import { useAuth } from "@/hooks/useAuth";
+import { ROUTES } from "@/config/routes";
+import { PageSpinner } from "@/components/ui/Spinner";
 
 // Views
-import { LoginView } from '@/views/auth/LoginView';
-import { SignUpView } from '@/views/auth/SignUpView';
-import { HomeView } from '@/views/home/HomeView';
-import { ProfileView } from '@/views/profile/ProfileView';
-import { SettingsView } from '@/views/profile/SettingsView';
-import { EventDetailView } from '@/views/event/EventDetailView';
-import { CreateEventView } from '@/views/event/CreateEventView';
-import { EditEventView } from '@/views/event/EditEventView';
-import { NotificationsView } from '@/views/notifications/NotificationsView';
-import { ListsView } from '@/views/list/ListsView';
-import { ListDetailView } from '@/views/list/ListDetailView';
-import { CreateListView } from '@/views/list/CreateListView';
+import { LoginView } from "@/views/auth/LoginView";
+import { SignUpView } from "@/views/auth/SignUpView";
+import { HomeView } from "@/views/home/HomeView";
+import { ProfileView } from "@/views/profile/ProfileView";
+import { SettingsView } from "@/views/profile/SettingsView";
+import { EventDetailView } from "@/views/event/EventDetailView";
+import { CreateEventView } from "@/views/event/CreateEventView";
+import { EditEventView } from "@/views/event/EditEventView";
+import { NotificationsView } from "@/views/notifications/NotificationsView";
+import { ListsView } from "@/views/list/ListsView";
+import { ListDetailView } from "@/views/list/ListDetailView";
+import { CreateListView } from "@/views/list/CreateListView";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,16 +50,22 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Public route wrapper (redirects to home if already logged in)
+// Public route wrapper (redirects to return URL or home if already logged in)
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const [searchParams] = useSearchParams();
 
   if (loading) {
     return <PageSpinner />;
   }
 
   if (user) {
-    return <Navigate to={ROUTES.HOME} replace />;
+    // Check for redirect parameter and navigate there, otherwise go home
+    const redirectUrl = searchParams.get("redirect");
+    const destination = redirectUrl
+      ? decodeURIComponent(redirectUrl)
+      : ROUTES.HOME;
+    return <Navigate to={destination} replace />;
   }
 
   return <>{children}</>;

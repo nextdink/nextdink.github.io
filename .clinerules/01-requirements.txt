@@ -12,6 +12,14 @@ Users can:
 - Sign in with Microsoft
 - Sign up / sign in with email + password
 
+Authentication Redirect Flow:
+- When an unauthenticated user tries to perform a protected action (e.g., join event):
+  - User is redirected to login page with a return URL parameter
+  - After successful login or signup, user is redirected back to the original page
+  - User is NOT automatically joined to the event - they must click join again
+  - This ensures explicit user intent for all actions
+- The redirect parameter is preserved when switching between login and signup pages
+
 User Profile:
 - Unique system-generated user ID
 - Display name

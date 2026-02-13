@@ -737,6 +737,77 @@ export const eventService = {
     });
   },
 
+  /**
+   * Decline event (registered user action)
+   * Removes user's registration and adds them to declinedUserIds
+   */
+  async declineEvent(eventId: string, userId: string): Promise<void> {
+    return await runTransaction(db, async (transaction) => {
+      const eventRef = doc(db, "events", eventId);
+      const eventSnap = await transaction.get(eventRef);
+
+      if (!eventSnap.exists()) {
+        throw new Error("Event not found");
+      }
+
+      const eventData = eventSnap.data();
+      const registrations = (eventData.registrations ||
+        []) as TeamRegistration[];
+      const declinedUserIds = (eventData.declinedUserIds || []) as string[];
+
+      // Find the team the user belongs to
+      const teamIndex = registrations.findIndex((team) =>
+        team.members.some(
+          (member) => member.type === "user" && member.userId === userId,
+        ),
+      );
+
+      if (teamIndex === -1) {
+        throw new Error("You are not registered for this event");
+      }
+
+      const team = registrations[teamIndex];
+
+      // Check if user is the captain - if so, remove the entire team
+      // If not, convert their slot to 'open'
+      let updatedRegistrations: TeamRegistration[];
+
+      if (team.createdBy === userId) {
+        // Captain declining - remove the entire team
+        updatedRegistrations = registrations.filter(
+          (_, index) => index !== teamIndex,
+        );
+      } else {
+        // Team member declining - convert their slot to 'open'
+        const memberIndex = team.members.findIndex(
+          (member) => member.type === "user" && member.userId === userId,
+        );
+
+        if (memberIndex === -1) {
+          throw new Error("Member not found in team");
+        }
+
+        const updatedMembers = [...team.members];
+        updatedMembers[memberIndex] = { type: "open" };
+
+        const updatedTeam = { ...team, members: updatedMembers };
+        updatedRegistrations = [...registrations];
+        updatedRegistrations[teamIndex] = updatedTeam;
+      }
+
+      // Add user to declined list
+      const updatedDeclinedUserIds = declinedUserIds.includes(userId)
+        ? declinedUserIds
+        : [...declinedUserIds, userId];
+
+      transaction.update(eventRef, {
+        registrations: updatedRegistrations,
+        declinedUserIds: updatedDeclinedUserIds,
+        updatedAt: serverTimestamp(),
+      });
+    });
+  },
+
   // ============================================
   // Admin Operations
   // ============================================
