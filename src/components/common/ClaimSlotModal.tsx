@@ -1,7 +1,7 @@
-import { Modal } from '@/components/ui/Modal';
-import { Button } from '@/components/ui/Button';
-import { User, UserPlus } from 'lucide-react';
-import type { TeamMember } from '@/types/event.types';
+import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
+import { User, UserPlus } from "lucide-react";
+import type { TeamMember } from "@/types/event.types";
 
 interface ClaimSlotModalProps {
   isOpen: boolean;
@@ -22,24 +22,34 @@ export function ClaimSlotModal({
   captainName,
   isLoading = false,
 }: ClaimSlotModalProps) {
-  const isOpenSlot = slot.type === 'open';
-  const isGuestSlot = slot.type === 'guest';
+  const isOpenSlot = slot.type === "open";
+  const isGuestSlot = slot.type === "guest";
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Join Group?">
+    <Modal isOpen={isOpen} onClose={onClose} title="Claim Spot?">
       <div className="space-y-4">
         {/* Description */}
         <div className="text-sm text-slate-600 dark:text-slate-400">
           {isOpenSlot && (
             <p>
-              Join <span className="font-medium text-slate-900 dark:text-slate-100">{captainName}'s</span> group 
-              by claiming their open spot.
+              Claim the open spot in{" "}
+              <span className="font-medium text-slate-900 dark:text-slate-100">
+                {captainName}'s
+              </span>{" "}
+              registration.
             </p>
           )}
           {isGuestSlot && (
             <p>
-              Join <span className="font-medium text-slate-900 dark:text-slate-100">{captainName}'s</span> group, 
-              replacing <span className="font-medium text-slate-900 dark:text-slate-100">{slot.displayName}</span>.
+              Claim this spot in{" "}
+              <span className="font-medium text-slate-900 dark:text-slate-100">
+                {captainName}'s
+              </span>{" "}
+              registration, replacing{" "}
+              <span className="font-medium text-slate-900 dark:text-slate-100">
+                {slot.displayName}
+              </span>
+              .
             </p>
           )}
         </div>
@@ -56,10 +66,10 @@ export function ClaimSlotModal({
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                {isOpenSlot ? 'Open Spot' : slot.displayName}
+                {isOpenSlot ? "Open Spot" : slot.displayName}
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {isOpenSlot ? 'Looking for +1' : 'Guest (no account)'}
+                {isOpenSlot ? "Looking for +1" : "Guest (no account)"}
               </p>
             </div>
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
@@ -70,21 +80,21 @@ export function ClaimSlotModal({
 
         {/* Info */}
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          You'll be added to this group for the event. The group captain ({captainName}) 
-          will be able to see you joined.
+          You'll be registered with {captainName} for this event.
         </p>
 
         {/* Actions */}
         <div className="flex gap-3 pt-2">
-          <Button variant="secondary" onClick={onClose} className="flex-1" disabled={isLoading}>
+          <Button
+            variant="secondary"
+            onClick={onClose}
+            className="flex-1"
+            disabled={isLoading}
+          >
             Cancel
           </Button>
-          <Button 
-            onClick={onConfirm} 
-            className="flex-1"
-            loading={isLoading}
-          >
-            Join Group
+          <Button onClick={onConfirm} className="flex-1" loading={isLoading}>
+            Claim Spot
           </Button>
         </div>
       </div>

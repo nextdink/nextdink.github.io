@@ -1,22 +1,22 @@
 // Event visibility and join rules
-export type EventVisibility = 'public' | 'code' | 'private';
-export type EventJoinType = 'open' | 'invite_only';
-export type EventStatus = 'active' | 'canceled' | 'completed';
+export type EventVisibility = "public" | "code" | "private";
+export type EventJoinType = "open" | "invite_only";
+export type EventStatus = "active" | "canceled" | "completed";
 
 // Team member types
-export type TeamMemberType = 'user' | 'guest' | 'open';
+export type TeamMemberType = "user" | "guest" | "open";
 
 /**
  * TeamMember represents a single slot in a team registration.
- * 
+ *
  * - type='user': A registered user (the team captain)
  * - type='guest': A name entered by the captain (can be claimed by any user)
  * - type='open': "Looking for partner" slot (can be claimed by any user)
  */
 export interface TeamMember {
   type: TeamMemberType;
-  userId?: string;          // Only for 'user' type
-  displayName?: string;     // For 'user' (from profile) or 'guest' (entered name)
+  userId?: string; // Only for 'user' type
+  displayName?: string; // For 'user' (from profile) or 'guest' (entered name)
   photoUrl?: string | null; // Only for 'user' type
 }
 
@@ -25,10 +25,10 @@ export interface TeamMember {
  * Teams are ordered by registration time (FIFO) for waitlist calculation.
  */
 export interface TeamRegistration {
-  id: string;                    // Auto-generated UUID
-  createdBy: string;             // User ID of team captain
-  createdAt: Date;               // For ordering (FIFO)
-  members: TeamMember[];         // Length must equal event.teamSize
+  id: string; // Auto-generated UUID
+  createdBy: string; // User ID of team captain
+  createdAt: Date; // For ordering (FIFO)
+  members: TeamMember[]; // Length must equal event.teamSize
 }
 
 /**
@@ -44,7 +44,7 @@ export interface EventLocation {
 
 /**
  * Event represents a pickleball game/session.
- * 
+ *
  * Capacity is calculated as: teamSize × maxTeams
  * Joined teams = first N registrations where N = maxTeams
  * Waitlisted teams = remaining registrations after maxTeams
@@ -55,38 +55,41 @@ export interface Event {
   description?: string;
   date: Date;
   endTime: Date;
-  
+
   // Team-based capacity
-  teamSize: number;         // 1-4 players per team, default 1
-  maxTeams: number;         // Maximum number of teams allowed
-  
+  teamSize: number; // 1-4 players per team, default 1
+  maxTeams: number; // Maximum number of teams allowed
+
   // Location
   venueName: string;
   formattedAddress: string;
   latitude: number;
   longitude: number;
   placeId?: string;
-  
+
   // Visibility & Join Rules
   visibility: EventVisibility;
   joinType: EventJoinType;
-  eventCode: string;        // Always set, unique across active events
-  
+  eventCode: string; // Always set, unique across active events
+
   // Status
   status: EventStatus;
-  
+
   // Roles
   ownerId: string;
   adminIds: string[];
-  
+
   // Team registrations (ordered array)
   // Joined teams = registrations.slice(0, maxTeams)
   // Waitlisted teams = registrations.slice(maxTeams)
   registrations: TeamRegistration[];
-  
+
   // Event-level invitations (for private/invite-only events)
   invitedUserIds: string[];
-  
+
+  // Users who declined their invitation
+  declinedUserIds: string[];
+
   // System
   createdAt: Date;
   updatedAt: Date;
@@ -170,8 +173,8 @@ export function getWaitlistedTeams(event: Event): TeamRegistration[] {
 export function getFilledSpotsCount(event: Event): number {
   const joinedTeams = getJoinedTeams(event);
   return joinedTeams.reduce(
-    (sum, team) => sum + team.members.filter(m => m.type === 'user').length,
-    0
+    (sum, team) => sum + team.members.filter((m) => m.type === "user").length,
+    0,
   );
 }
 
@@ -181,8 +184,11 @@ export function getFilledSpotsCount(event: Event): number {
 export function getClaimableSpotsCount(event: Event): number {
   const joinedTeams = getJoinedTeams(event);
   return joinedTeams.reduce(
-    (sum, team) => sum + team.members.filter(m => m.type === 'open' || m.type === 'guest').length,
-    0
+    (sum, team) =>
+      sum +
+      team.members.filter((m) => m.type === "open" || m.type === "guest")
+        .length,
+    0,
   );
 }
 
@@ -190,17 +196,24 @@ export function getClaimableSpotsCount(event: Event): number {
  * Check if a user is already registered in any team for an event.
  */
 export function isUserInEvent(event: Event, userId: string): boolean {
-  return event.registrations.some(team =>
-    team.members.some(member => member.type === 'user' && member.userId === userId)
+  return event.registrations.some((team) =>
+    team.members.some(
+      (member) => member.type === "user" && member.userId === userId,
+    ),
   );
 }
 
 /**
  * Find the team registration a user belongs to.
  */
-export function getUserTeam(event: Event, userId: string): TeamRegistration | undefined {
-  return event.registrations.find(team =>
-    team.members.some(member => member.type === 'user' && member.userId === userId)
+export function getUserTeam(
+  event: Event,
+  userId: string,
+): TeamRegistration | undefined {
+  return event.registrations.find((team) =>
+    team.members.some(
+      (member) => member.type === "user" && member.userId === userId,
+    ),
   );
 }
 
@@ -215,9 +228,9 @@ export function isTeamCaptain(team: TeamRegistration, userId: string): boolean {
  * Get the user's status in an event (joined, waitlisted, or not registered).
  */
 export function getUserEventStatus(
-  event: Event, 
-  userId: string
-): 'joined' | 'waitlisted' | 'invited' | 'not_registered' {
+  event: Event,
+  userId: string,
+): "joined" | "waitlisted" | "invited" | "not_registered" {
   // Check if invited
   if (event.invitedUserIds.includes(userId)) {
     // Also check if they've joined after being invited
@@ -225,25 +238,28 @@ export function getUserEventStatus(
       const userTeam = getUserTeam(event, userId);
       if (userTeam) {
         const teamIndex = event.registrations.indexOf(userTeam);
-        return teamIndex < event.maxTeams ? 'joined' : 'waitlisted';
+        return teamIndex < event.maxTeams ? "joined" : "waitlisted";
       }
     }
-    return 'invited';
+    return "invited";
   }
-  
+
   // Check if in a team
   const userTeam = getUserTeam(event, userId);
-  if (!userTeam) return 'not_registered';
-  
+  if (!userTeam) return "not_registered";
+
   const teamIndex = event.registrations.indexOf(userTeam);
-  return teamIndex < event.maxTeams ? 'joined' : 'waitlisted';
+  return teamIndex < event.maxTeams ? "joined" : "waitlisted";
 }
 
 /**
  * Get waitlist position for a team (1-indexed, or null if not waitlisted).
  */
-export function getWaitlistPosition(event: Event, teamId: string): number | null {
-  const teamIndex = event.registrations.findIndex(team => team.id === teamId);
+export function getWaitlistPosition(
+  event: Event,
+  teamId: string,
+): number | null {
+  const teamIndex = event.registrations.findIndex((team) => team.id === teamId);
   if (teamIndex === -1 || teamIndex < event.maxTeams) {
     return null; // Not found or not waitlisted
   }
