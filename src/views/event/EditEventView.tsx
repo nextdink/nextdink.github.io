@@ -17,7 +17,12 @@ export function EditEventView() {
   const { eventCode } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { event, isLoading: isLoadingEvent, error: loadError } = useEvent(eventCode);
+  const { event, isLoading: isLoadingEvent, error: loadError } = useEvent(
+    eventCode, 
+    user?.uid, 
+    user?.displayName || undefined, 
+    user?.photoURL
+  );
   
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -30,7 +35,8 @@ export function EditEventView() {
   const [date, setDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
-  const [maxPlayers, setMaxPlayers] = useState('8');
+  const [teamSize, setTeamSize] = useState(1);
+  const [maxTeams, setMaxTeams] = useState('8');
   
   // Step 2: Location
   const [location, setLocation] = useState<EventLocation | null>(null);
@@ -38,6 +44,15 @@ export function EditEventView() {
   // Step 3: Rules
   const [visibility, setVisibility] = useState<EventVisibility>('public');
   const [joinType, setJoinType] = useState<EventJoinType>('open');
+
+  // Calculate total capacity
+  const totalCapacity = teamSize * parseInt(maxTeams || '0', 10);
+
+  // Get team size label for summary
+  const getTeamSizeLabel = (size: number) => {
+    if (size === 1) return '1 (individual)';
+    return `${size} players per team`;
+  };
 
   // Initialize form with event data
   useEffect(() => {
@@ -47,7 +62,8 @@ export function EditEventView() {
       setDate(format(event.date, 'yyyy-MM-dd'));
       setStartTime(format(event.date, 'HH:mm'));
       setEndTime(format(event.endTime, 'HH:mm'));
-      setMaxPlayers(event.maxPlayers.toString());
+      setTeamSize(event.teamSize);
+      setMaxTeams(event.maxTeams.toString());
       setLocation({
         venueName: event.venueName,
         formattedAddress: event.formattedAddress,
@@ -93,7 +109,8 @@ export function EditEventView() {
         description: description || undefined,
         date: eventDate,
         endTime: eventEndTime,
-        maxPlayers: parseInt(maxPlayers, 10),
+        teamSize,
+        maxTeams: parseInt(maxTeams, 10),
         venueName: location.venueName,
         formattedAddress: location.formattedAddress,
         latitude: location.latitude,
@@ -113,7 +130,7 @@ export function EditEventView() {
     }
   };
 
-  const canProceedStep1 = name && date && startTime && endTime;
+  const canProceedStep1 = name && date && startTime && endTime && parseInt(maxTeams, 10) > 0;
   const canProceedStep2 = location !== null;
 
   // Loading state
@@ -255,15 +272,52 @@ export function EditEventView() {
                   required
                 />
               </div>
-              <Input
-                label="Max Players"
-                type="number"
-                value={maxPlayers}
-                onChange={(e) => setMaxPlayers(e.target.value)}
-                min="2"
-                max="100"
-                required
-              />
+
+              {/* Team Size Selection */}
+              <div>
+                <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-1.5">
+                  Team Size
+                </label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4].map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => setTeamSize(size)}
+                      className={`flex-1 h-11 rounded-lg font-medium text-sm transition-colors ${
+                        teamSize === size
+                          ? 'bg-primary-600 text-white dark:bg-primary-500 dark:text-slate-950'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">
+                  {teamSize === 1 ? 'Individual registration' : `${teamSize} players register together`}
+                </p>
+              </div>
+
+              {/* Number of Teams */}
+              <div>
+                <Input
+                  label="Number of Teams"
+                  type="number"
+                  value={maxTeams}
+                  onChange={(e) => setMaxTeams(e.target.value)}
+                  min="1"
+                  max="50"
+                  required
+                />
+                {totalCapacity > 0 && (
+                  <p className="text-xs text-primary-600 dark:text-primary-400 mt-1.5 font-medium">
+                    {totalCapacity} player{totalCapacity !== 1 ? 's' : ''} total
+                    {teamSize > 1 && ` (${maxTeams} team${parseInt(maxTeams, 10) !== 1 ? 's' : ''} × ${teamSize})`}
+                  </p>
+                )}
+              </div>
+
               <Button onClick={() => setStep(2)} className="w-full" disabled={!canProceedStep1}>
                 Next: Location
               </Button>
@@ -398,8 +452,16 @@ export function EditEventView() {
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Max Players</span>
-                <span className="text-slate-900 dark:text-slate-100">{maxPlayers}</span>
+                <span className="text-slate-500 dark:text-slate-400">Team Size</span>
+                <span className="text-slate-900 dark:text-slate-100">
+                  {getTeamSizeLabel(teamSize)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Capacity</span>
+                <span className="text-slate-900 dark:text-slate-100">
+                  {totalCapacity} player{totalCapacity !== 1 ? 's' : ''}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Venue</span>

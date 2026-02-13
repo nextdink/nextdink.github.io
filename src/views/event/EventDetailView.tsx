@@ -6,7 +6,7 @@ import {
   Clock, 
   MapPin, 
   Users, 
-  Share2, 
+  Share, 
   Edit, 
   XCircle,
   UserPlus,
@@ -232,7 +232,7 @@ export function EventDetailView() {
             </Button>
           )}
           <Button variant="secondary" onClick={handleShare}>
-            <Share2 className="w-4 h-4" />
+            <Share className="w-4 h-4" />
           </Button>
           {canManage && (
             <Button variant="secondary" onClick={() => navigate(`/event/${eventCode}/edit`)}>
