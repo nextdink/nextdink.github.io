@@ -1,31 +1,54 @@
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, MapPin } from 'lucide-react';
+import { Calendar, Clock, MapPin, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 import { Card } from '@/components/ui/Card';
 import { CapacityBar } from '@/components/ui/CapacityBar';
 import { StatusBadge } from '@/components/ui/Badge';
 import { getEventRoute } from '@/config/routes';
-import type { Event } from '@/types';
+import type { Event } from '@/types/event.types';
+import { getJoinedTeams, getTotalCapacity, getClaimableSpotsCount } from '@/types/event.types';
 
 interface EventCardProps {
   event: Event;
   userStatus?: string;
+  showInviteBadge?: boolean;
   className?: string;
 }
 
-export function EventCard({ event, userStatus, className = '' }: EventCardProps) {
+export function EventCard({ event, userStatus, showInviteBadge, className = '' }: EventCardProps) {
   const navigate = useNavigate();
+
+  // Calculate capacity from registrations
+  const joinedTeams = getJoinedTeams(event);
+  const totalCapacity = getTotalCapacity(event);
+  const claimableSpots = getClaimableSpotsCount(event);
+  
+  // For individual signup (teamSize=1), show player count
+  // For group signup, show registrations count
+  const currentCount = event.teamSize === 1 
+    ? joinedTeams.length 
+    : joinedTeams.reduce((sum, team) => sum + team.members.filter(m => m.type === 'user').length, 0);
+  
+  const maxCount = event.teamSize === 1 ? event.maxTeams : totalCapacity;
 
   return (
     <Card
       className={`cursor-pointer hover:border-slate-300 dark:hover:border-slate-700 transition-colors ${className}`}
-      onClick={() => navigate(getEventRoute(event.eventCode!))}
+      onClick={() => navigate(getEventRoute(event.eventCode))}
     >
       <div className="flex items-start justify-between mb-2">
         <h3 className="text-base font-medium text-slate-900 dark:text-slate-100">
           {event.name}
         </h3>
-        {userStatus && <StatusBadge status={userStatus} />}
+        <div className="flex items-center gap-2">
+          {showInviteBadge && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950 dark:text-purple-400 dark:border-purple-800">
+              <Mail className="w-3 h-3" />
+              Invited
+            </span>
+          )}
+          {userStatus && <StatusBadge status={userStatus} />}
+        </div>
       </div>
 
       <div className="space-y-2 mb-3">
@@ -45,7 +68,14 @@ export function EventCard({ event, userStatus, className = '' }: EventCardProps)
         </div>
       </div>
 
-      <CapacityBar current={event.joinedCount} max={event.maxPlayers} />
+      <div className="space-y-1">
+        <CapacityBar current={currentCount} max={maxCount} />
+        {claimableSpots > 0 && (
+          <p className="text-xs text-primary-600 dark:text-primary-400">
+            {claimableSpots} open slot{claimableSpots !== 1 ? 's' : ''} available
+          </p>
+        )}
+      </div>
     </Card>
   );
 }
@@ -58,6 +88,15 @@ interface EventCardCompactProps {
 }
 
 export function EventCardCompact({ event, onClick, className = '' }: EventCardCompactProps) {
+  const joinedTeams = getJoinedTeams(event);
+  const totalCapacity = getTotalCapacity(event);
+  
+  const currentCount = event.teamSize === 1 
+    ? joinedTeams.length 
+    : joinedTeams.reduce((sum, team) => sum + team.members.filter(m => m.type === 'user').length, 0);
+  
+  const maxCount = event.teamSize === 1 ? event.maxTeams : totalCapacity;
+
   return (
     <div
       onClick={onClick}
@@ -72,7 +111,7 @@ export function EventCardCompact({ event, onClick, className = '' }: EventCardCo
           {event.name}
         </h4>
         <span className="text-sm text-slate-500 dark:text-slate-400">
-          {event.joinedCount}/{event.maxPlayers}
+          {currentCount}/{maxCount}
         </span>
       </div>
       <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">

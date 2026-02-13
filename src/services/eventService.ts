@@ -1,7 +1,6 @@
 import {
   doc,
   getDoc,
-  setDoc,
   updateDoc,
   collection,
   query,
@@ -11,17 +10,37 @@ import {
   getDocs,
   serverTimestamp,
   runTransaction,
+  arrayUnion,
+  arrayRemove,
   type Timestamp,
   addDoc,
+  deleteDoc,
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
-import type { Event, CreateEventData, UpdateEventData, EventParticipant, ParticipantStatus } from '@/types/event.types';
+import type {
+  Event,
+  CreateEventData,
+  UpdateEventData,
+  TeamRegistration,
+  TeamMember,
+  RegisterTeamData,
+} from '@/types/event.types';
 import { generateEventCode } from '@/utils/eventCodeUtils';
 
 // Helper to convert Firestore timestamps to Date
-const convertTimestamp = (timestamp: Timestamp | null): Date => {
-  return timestamp ? timestamp.toDate() : new Date();
+const convertTimestamp = (timestamp: Timestamp | Date | null): Date => {
+  if (!timestamp) return new Date();
+  if (timestamp instanceof Date) return timestamp;
+  return timestamp.toDate();
 };
+
+// Convert Firestore team registration data
+const convertTeamRegistration = (data: Record<string, unknown>): TeamRegistration => ({
+  id: data.id as string,
+  createdBy: data.createdBy as string,
+  createdAt: convertTimestamp(data.createdAt as Timestamp),
+  members: (data.members as TeamMember[]) || [],
+});
 
 // Convert Firestore document to Event
 const docToEvent = (id: string, data: Record<string, unknown>): Event => ({
@@ -30,7 +49,8 @@ const docToEvent = (id: string, data: Record<string, unknown>): Event => ({
   description: data.description as string | undefined,
   date: convertTimestamp(data.date as Timestamp),
   endTime: convertTimestamp(data.endTime as Timestamp),
-  maxPlayers: data.maxPlayers as number,
+  teamSize: (data.teamSize as number) || 1,
+  maxTeams: (data.maxTeams as number) || 8,
   venueName: data.venueName as string,
   formattedAddress: data.formattedAddress as string,
   latitude: data.latitude as number,
@@ -38,12 +58,12 @@ const docToEvent = (id: string, data: Record<string, unknown>): Event => ({
   placeId: data.placeId as string | undefined,
   visibility: data.visibility as Event['visibility'],
   joinType: data.joinType as Event['joinType'],
-  eventCode: data.eventCode as string | undefined,
+  eventCode: data.eventCode as string,
   status: data.status as Event['status'],
   ownerId: data.ownerId as string,
-  adminIds: data.adminIds as string[],
-  joinedCount: data.joinedCount as number,
-  waitlistCount: data.waitlistCount as number,
+  adminIds: (data.adminIds as string[]) || [],
+  registrations: ((data.registrations as Record<string, unknown>[]) || []).map(convertTeamRegistration),
+  invitedUserIds: (data.invitedUserIds as string[]) || [],
   createdAt: convertTimestamp(data.createdAt as Timestamp),
   updatedAt: convertTimestamp(data.updatedAt as Timestamp),
 });
@@ -59,12 +79,28 @@ const removeUndefined = <T extends object>(obj: T): Partial<T> => {
   return result;
 };
 
+// Generate a unique ID for team registrations
+const generateTeamId = (): string => {
+  return crypto.randomUUID ? crypto.randomUUID() : 
+    'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+};
+
 export const eventService = {
-  // Create a new event - returns the generated eventCode for navigation
+  // ============================================
+  // Event CRUD Operations
+  // ============================================
+
+  /**
+   * Create a new event - returns the generated eventCode for navigation
+   */
   async create(data: CreateEventData, ownerId: string): Promise<string> {
     const eventsRef = collection(db, 'events');
     
-    // Generate a unique event code for ALL events
+    // Generate a unique event code
     let eventCode = generateEventCode();
     let attempts = 0;
     const maxAttempts = 10;
@@ -78,13 +114,14 @@ export const eventService = {
       throw new Error('Failed to generate unique event code. Please try again.');
     }
 
-    // Build the event data, filtering out undefined values
+    // Build the event data
     const eventData = removeUndefined({
       name: data.name,
       description: data.description,
       date: data.date,
       endTime: data.endTime,
-      maxPlayers: data.maxPlayers,
+      teamSize: data.teamSize || 1,
+      maxTeams: data.maxTeams || 8,
       venueName: data.venueName,
       formattedAddress: data.formattedAddress,
       latitude: data.latitude,
@@ -92,45 +129,53 @@ export const eventService = {
       placeId: data.placeId,
       visibility: data.visibility,
       joinType: data.joinType,
-      eventCode, // Always set the auto-generated code
+      eventCode,
       status: 'active' as const,
       ownerId,
       adminIds: [],
-      joinedCount: 0,
-      waitlistCount: 0,
+      registrations: [],
+      invitedUserIds: [],
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
 
     await addDoc(eventsRef, eventData);
-
-    // Return the eventCode for navigation (URLs now use eventCode)
     return eventCode;
   },
 
-  // Get event by ID
+  /**
+   * Get event by document ID
+   */
   async getById(eventId: string): Promise<Event | null> {
     const eventRef = doc(db, 'events', eventId);
     const eventSnap = await getDoc(eventRef);
-
     if (!eventSnap.exists()) return null;
-
     return docToEvent(eventSnap.id, eventSnap.data());
   },
 
-  // Update event
+  /**
+   * Get event by event code
+   */
+  async getByCode(eventCode: string): Promise<Event | null> {
+    const eventsRef = collection(db, 'events');
+    const q = query(
+      eventsRef,
+      where('eventCode', '==', eventCode),
+      where('status', '==', 'active')
+    );
+
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return null;
+
+    const eventDoc = snapshot.docs[0];
+    return docToEvent(eventDoc.id, eventDoc.data());
+  },
+
+  /**
+   * Update event details
+   */
   async update(eventId: string, data: UpdateEventData): Promise<void> {
     const eventRef = doc(db, 'events', eventId);
-    
-    // If eventCode is being updated, check uniqueness
-    if (data.eventCode) {
-      const isUnique = await this.isEventCodeUnique(data.eventCode, eventId);
-      if (!isUnique) {
-        throw new Error('Event code is already in use');
-      }
-    }
-
-    // Filter out undefined values (Firestore doesn't accept undefined)
     const cleanedData = removeUndefined(data);
 
     await updateDoc(eventRef, {
@@ -139,7 +184,9 @@ export const eventService = {
     });
   },
 
-  // Cancel event
+  /**
+   * Cancel event
+   */
   async cancel(eventId: string): Promise<void> {
     const eventRef = doc(db, 'events', eventId);
     await updateDoc(eventRef, {
@@ -148,29 +195,17 @@ export const eventService = {
     });
   },
 
-  // Delete event (permanently removes from database)
+  /**
+   * Delete event permanently
+   */
   async delete(eventId: string): Promise<void> {
-    // First, delete all participants subcollection
-    const participantsRef = collection(db, 'events', eventId, 'participants');
-    const participantsSnap = await getDocs(participantsRef);
-    
-    // Use a batch to delete all participants
-    const { writeBatch } = await import('firebase/firestore');
-    const batch = writeBatch(db);
-    
-    participantsSnap.docs.forEach((participantDoc) => {
-      batch.delete(participantDoc.ref);
-    });
-    
-    // Delete the event document itself
     const eventRef = doc(db, 'events', eventId);
-    batch.delete(eventRef);
-    
-    // Commit the batch
-    await batch.commit();
+    await deleteDoc(eventRef);
   },
 
-  // Check if event code is unique
+  /**
+   * Check if event code is unique among active events
+   */
   async isEventCodeUnique(eventCode: string, excludeEventId?: string): Promise<boolean> {
     const eventsRef = collection(db, 'events');
     const q = query(
@@ -188,23 +223,13 @@ export const eventService = {
     return false;
   },
 
-  // Get event by code
-  async getByCode(eventCode: string): Promise<Event | null> {
-    const eventsRef = collection(db, 'events');
-    const q = query(
-      eventsRef,
-      where('eventCode', '==', eventCode),
-      where('status', '==', 'active')
-    );
+  // ============================================
+  // Event Query Operations
+  // ============================================
 
-    const snapshot = await getDocs(q);
-    if (snapshot.empty) return null;
-
-    const eventDoc = snapshot.docs[0];
-    return docToEvent(eventDoc.id, eventDoc.data());
-  },
-
-  // Get public events
+  /**
+   * Get public events
+   */
   async getPublicEvents(limitCount = 20): Promise<Event[]> {
     const eventsRef = collection(db, 'events');
     const q = query(
@@ -219,7 +244,9 @@ export const eventService = {
     return snapshot.docs.map(eventDoc => docToEvent(eventDoc.id, eventDoc.data()));
   },
 
-  // Get events by owner
+  /**
+   * Get events by owner
+   */
   async getByOwner(ownerId: string): Promise<Event[]> {
     const eventsRef = collection(db, 'events');
     const q = query(
@@ -229,12 +256,16 @@ export const eventService = {
 
     const snapshot = await getDocs(q);
     const events = snapshot.docs.map(eventDoc => docToEvent(eventDoc.id, eventDoc.data()));
-    // Sort client-side by date descending (newest first)
     return events.sort((a, b) => b.date.getTime() - a.date.getTime());
   },
 
-  // Get events where user is participant
+  /**
+   * Get events where user is a participant (in any team)
+   */
   async getByParticipant(userId: string): Promise<Event[]> {
+    // Note: Firestore doesn't support querying nested array fields directly,
+    // so we need to fetch active events and filter client-side.
+    // For scale, consider maintaining a separate userEvents collection.
     const eventsRef = collection(db, 'events');
     const q = query(
       eventsRef,
@@ -244,228 +275,375 @@ export const eventService = {
     const snapshot = await getDocs(q);
     const events = snapshot.docs.map(eventDoc => docToEvent(eventDoc.id, eventDoc.data()));
 
-    // Filter to only events where user is a participant
-    const participantEvents: Event[] = [];
-    for (const event of events) {
-      const participant = await this.getParticipant(event.id, userId);
-      if (participant && participant.status === 'joined') {
-        participantEvents.push(event);
-      }
-    }
+    // Filter to events where user is in any team
+    const participantEvents = events.filter(event =>
+      event.registrations.some(team =>
+        team.members.some(member => member.type === 'user' && member.userId === userId)
+      )
+    );
 
-    // Sort client-side by date ascending
     return participantEvents.sort((a, b) => a.date.getTime() - b.date.getTime());
   },
 
-  // Add admin to event
-  async addAdmin(eventId: string, userId: string): Promise<void> {
-    const eventRef = doc(db, 'events', eventId);
-    const eventSnap = await getDoc(eventRef);
-    
-    if (!eventSnap.exists()) throw new Error('Event not found');
-    
-    const adminIds = eventSnap.data().adminIds || [];
-    if (!adminIds.includes(userId)) {
-      await updateDoc(eventRef, {
-        adminIds: [...adminIds, userId],
-        updatedAt: serverTimestamp(),
-      });
-    }
+  /**
+   * Get events where user is invited
+   */
+  async getByInvitedUser(userId: string): Promise<Event[]> {
+    const eventsRef = collection(db, 'events');
+    const q = query(
+      eventsRef,
+      where('invitedUserIds', 'array-contains', userId),
+      where('status', '==', 'active')
+    );
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(eventDoc => docToEvent(eventDoc.id, eventDoc.data()));
   },
 
-  // Remove admin from event
-  async removeAdmin(eventId: string, userId: string): Promise<void> {
+  // ============================================
+  // Team Registration Operations
+  // ============================================
+
+  /**
+   * Register a new team for an event
+   * Returns the status: 'joined' if within capacity, 'waitlisted' if beyond
+   */
+  async registerTeam(
+    eventId: string, 
+    userId: string, 
+    userDisplayName: string,
+    userPhotoUrl: string | null,
+    teamData: RegisterTeamData
+  ): Promise<{ status: 'joined' | 'waitlisted'; teamId: string }> {
+    return await runTransaction(db, async (transaction) => {
+      const eventRef = doc(db, 'events', eventId);
+      const eventSnap = await transaction.get(eventRef);
+      
+      if (!eventSnap.exists()) {
+        throw new Error('Event not found');
+      }
+      
+      const eventData = eventSnap.data();
+      const registrations = (eventData.registrations || []) as TeamRegistration[];
+      const teamSize = eventData.teamSize as number;
+      const maxTeams = eventData.maxTeams as number;
+
+      // Validate team size
+      if (teamData.members.length !== teamSize) {
+        throw new Error(`Team must have exactly ${teamSize} member(s)`);
+      }
+
+      // Check if user is already in a team
+      const isAlreadyRegistered = registrations.some(team =>
+        team.members.some(member => member.type === 'user' && member.userId === userId)
+      );
+      
+      if (isAlreadyRegistered) {
+        throw new Error('You are already registered for this event');
+      }
+
+      // Create the team registration
+      // First member is always the captain (the user registering)
+      const teamId = generateTeamId();
+      const captainMember: TeamMember = {
+        type: 'user',
+        userId,
+        displayName: userDisplayName,
+        photoUrl: userPhotoUrl,
+      };
+
+      // Build members array with captain first, then other members
+      const members: TeamMember[] = [captainMember, ...teamData.members.slice(1)];
+
+      const newTeam: TeamRegistration = {
+        id: teamId,
+        createdBy: userId,
+        createdAt: new Date(),
+        members,
+      };
+
+      // Add to registrations array
+      const updatedRegistrations = [...registrations, newTeam];
+
+      transaction.update(eventRef, {
+        registrations: updatedRegistrations,
+        updatedAt: serverTimestamp(),
+      });
+
+      // Determine if joined or waitlisted based on position
+      const teamIndex = updatedRegistrations.length - 1;
+      const status = teamIndex < maxTeams ? 'joined' : 'waitlisted';
+
+      return { status, teamId };
+    });
+  },
+
+  /**
+   * Leave a team / remove registration
+   * If the user is the captain, the entire team is removed
+   * If the user is a team member (future: when users can be added), their slot becomes 'open'
+   */
+  async leaveTeam(eventId: string, userId: string): Promise<void> {
+    return await runTransaction(db, async (transaction) => {
+      const eventRef = doc(db, 'events', eventId);
+      const eventSnap = await transaction.get(eventRef);
+      
+      if (!eventSnap.exists()) {
+        throw new Error('Event not found');
+      }
+      
+      const eventData = eventSnap.data();
+      const registrations = (eventData.registrations || []) as TeamRegistration[];
+
+      // Find the team the user belongs to
+      const teamIndex = registrations.findIndex(team =>
+        team.members.some(member => member.type === 'user' && member.userId === userId)
+      );
+
+      if (teamIndex === -1) {
+        throw new Error('You are not registered for this event');
+      }
+
+      const team = registrations[teamIndex];
+      
+      // Check if user is the captain
+      if (team.createdBy === userId) {
+        // Captain leaving - remove the entire team
+        const updatedRegistrations = registrations.filter((_, index) => index !== teamIndex);
+        
+        transaction.update(eventRef, {
+          registrations: updatedRegistrations,
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        // Team member leaving (future use case) - convert their slot to 'open'
+        const memberIndex = team.members.findIndex(
+          member => member.type === 'user' && member.userId === userId
+        );
+        
+        if (memberIndex === -1) {
+          throw new Error('Member not found in team');
+        }
+
+        const updatedMembers = [...team.members];
+        updatedMembers[memberIndex] = { type: 'open' };
+
+        const updatedTeam = { ...team, members: updatedMembers };
+        const updatedRegistrations = [...registrations];
+        updatedRegistrations[teamIndex] = updatedTeam;
+
+        transaction.update(eventRef, {
+          registrations: updatedRegistrations,
+          updatedAt: serverTimestamp(),
+        });
+      }
+    });
+  },
+
+  /**
+   * Claim an open or guest slot in an existing team
+   */
+  async claimSlot(
+    eventId: string,
+    teamId: string,
+    memberIndex: number,
+    userId: string,
+    userDisplayName: string,
+    userPhotoUrl: string | null
+  ): Promise<{ status: 'joined' | 'waitlisted' }> {
+    return await runTransaction(db, async (transaction) => {
+      const eventRef = doc(db, 'events', eventId);
+      const eventSnap = await transaction.get(eventRef);
+      
+      if (!eventSnap.exists()) {
+        throw new Error('Event not found');
+      }
+      
+      const eventData = eventSnap.data();
+      const registrations = (eventData.registrations || []) as TeamRegistration[];
+      const maxTeams = eventData.maxTeams as number;
+
+      // Check if user is already in a team
+      const isAlreadyRegistered = registrations.some(team =>
+        team.members.some(member => member.type === 'user' && member.userId === userId)
+      );
+      
+      if (isAlreadyRegistered) {
+        throw new Error('You are already registered for this event');
+      }
+
+      // Find the team
+      const teamIndex = registrations.findIndex(team => team.id === teamId);
+      if (teamIndex === -1) {
+        throw new Error('Team not found');
+      }
+
+      const team = registrations[teamIndex];
+
+      // Validate member index
+      if (memberIndex < 0 || memberIndex >= team.members.length) {
+        throw new Error('Invalid slot position');
+      }
+
+      const slot = team.members[memberIndex];
+
+      // Check if slot is claimable
+      if (slot.type !== 'open' && slot.type !== 'guest') {
+        throw new Error('This slot cannot be claimed');
+      }
+
+      // Update the slot with the new user
+      const updatedMembers = [...team.members];
+      updatedMembers[memberIndex] = {
+        type: 'user',
+        userId,
+        displayName: userDisplayName,
+        photoUrl: userPhotoUrl,
+      };
+
+      const updatedTeam = { ...team, members: updatedMembers };
+      const updatedRegistrations = [...registrations];
+      updatedRegistrations[teamIndex] = updatedTeam;
+
+      transaction.update(eventRef, {
+        registrations: updatedRegistrations,
+        updatedAt: serverTimestamp(),
+      });
+
+      // Return status based on team position
+      const status = teamIndex < maxTeams ? 'joined' : 'waitlisted';
+      return { status };
+    });
+  },
+
+  /**
+   * Update a team member (captain only)
+   * Can change guest name or convert slot to open
+   */
+  async updateTeamMember(
+    eventId: string,
+    teamId: string,
+    memberIndex: number,
+    userId: string, // For authorization check
+    newMember: TeamMember
+  ): Promise<void> {
+    return await runTransaction(db, async (transaction) => {
+      const eventRef = doc(db, 'events', eventId);
+      const eventSnap = await transaction.get(eventRef);
+      
+      if (!eventSnap.exists()) {
+        throw new Error('Event not found');
+      }
+      
+      const eventData = eventSnap.data();
+      const registrations = (eventData.registrations || []) as TeamRegistration[];
+
+      // Find the team
+      const teamIndex = registrations.findIndex(team => team.id === teamId);
+      if (teamIndex === -1) {
+        throw new Error('Team not found');
+      }
+
+      const team = registrations[teamIndex];
+
+      // Check if user is the captain
+      if (team.createdBy !== userId) {
+        throw new Error('Only the team captain can edit team members');
+      }
+
+      // Validate member index (can't edit position 0 which is the captain)
+      if (memberIndex <= 0 || memberIndex >= team.members.length) {
+        throw new Error('Invalid slot position');
+      }
+
+      // Update the member
+      const updatedMembers = [...team.members];
+      updatedMembers[memberIndex] = newMember;
+
+      const updatedTeam = { ...team, members: updatedMembers };
+      const updatedRegistrations = [...registrations];
+      updatedRegistrations[teamIndex] = updatedTeam;
+
+      transaction.update(eventRef, {
+        registrations: updatedRegistrations,
+        updatedAt: serverTimestamp(),
+      });
+    });
+  },
+
+  /**
+   * Remove a team (admin/owner action)
+   */
+  async removeTeam(eventId: string, teamId: string): Promise<void> {
+    return await runTransaction(db, async (transaction) => {
+      const eventRef = doc(db, 'events', eventId);
+      const eventSnap = await transaction.get(eventRef);
+      
+      if (!eventSnap.exists()) {
+        throw new Error('Event not found');
+      }
+      
+      const eventData = eventSnap.data();
+      const registrations = (eventData.registrations || []) as TeamRegistration[];
+
+      const updatedRegistrations = registrations.filter(team => team.id !== teamId);
+
+      transaction.update(eventRef, {
+        registrations: updatedRegistrations,
+        updatedAt: serverTimestamp(),
+      });
+    });
+  },
+
+  // ============================================
+  // Invitation Operations
+  // ============================================
+
+  /**
+   * Invite a user to an event
+   */
+  async inviteUser(eventId: string, userId: string): Promise<void> {
     const eventRef = doc(db, 'events', eventId);
-    const eventSnap = await getDoc(eventRef);
-    
-    if (!eventSnap.exists()) throw new Error('Event not found');
-    
-    const adminIds = eventSnap.data().adminIds || [];
     await updateDoc(eventRef, {
-      adminIds: adminIds.filter((id: string) => id !== userId),
+      invitedUserIds: arrayUnion(userId),
       updatedAt: serverTimestamp(),
     });
   },
 
-  // Participant management
-  async getParticipant(eventId: string, userId: string): Promise<EventParticipant | null> {
-    const participantRef = doc(db, 'events', eventId, 'participants', userId);
-    const participantSnap = await getDoc(participantRef);
-
-    if (!participantSnap.exists()) return null;
-
-    const data = participantSnap.data();
-    return {
-      id: participantSnap.id,
-      status: data.status,
-      role: data.role,
-      joinedAt: convertTimestamp(data.joinedAt),
-      invitedBy: data.invitedBy,
-      waitlistPosition: data.waitlistPosition,
-    };
-  },
-
-  async getParticipants(eventId: string): Promise<EventParticipant[]> {
-    const participantsRef = collection(db, 'events', eventId, 'participants');
-    const snapshot = await getDocs(participantsRef);
-
-    return snapshot.docs.map(participantDoc => ({
-      id: participantDoc.id,
-      status: participantDoc.data().status,
-      role: participantDoc.data().role,
-      joinedAt: convertTimestamp(participantDoc.data().joinedAt),
-      invitedBy: participantDoc.data().invitedBy,
-      waitlistPosition: participantDoc.data().waitlistPosition,
-    }));
-  },
-
-  async getParticipantsByStatus(eventId: string, status: ParticipantStatus): Promise<EventParticipant[]> {
-    const participantsRef = collection(db, 'events', eventId, 'participants');
-    const q = query(participantsRef, where('status', '==', status));
-    const snapshot = await getDocs(q);
-
-    return snapshot.docs.map(participantDoc => ({
-      id: participantDoc.id,
-      status: participantDoc.data().status,
-      role: participantDoc.data().role,
-      joinedAt: convertTimestamp(participantDoc.data().joinedAt),
-      invitedBy: participantDoc.data().invitedBy,
-      waitlistPosition: participantDoc.data().waitlistPosition,
-    }));
-  },
-
-  // Join event
-  async joinEvent(eventId: string, userId: string): Promise<'joined' | 'waitlisted'> {
-    return await runTransaction(db, async (transaction) => {
-      const eventRef = doc(db, 'events', eventId);
-      const participantRef = doc(db, 'events', eventId, 'participants', userId);
-      
-      const eventSnap = await transaction.get(eventRef);
-      if (!eventSnap.exists()) throw new Error('Event not found');
-      
-      const eventData = eventSnap.data();
-      const joinedCount = eventData.joinedCount || 0;
-      const waitlistCount = eventData.waitlistCount || 0;
-      const maxPlayers = eventData.maxPlayers;
-
-      if (joinedCount < maxPlayers) {
-        // Can join directly
-        transaction.set(participantRef, {
-          status: 'joined',
-          role: 'player',
-          joinedAt: serverTimestamp(),
-        });
-        transaction.update(eventRef, {
-          joinedCount: joinedCount + 1,
-          updatedAt: serverTimestamp(),
-        });
-        return 'joined';
-      } else {
-        // Add to waitlist
-        transaction.set(participantRef, {
-          status: 'waitlisted',
-          role: 'player',
-          joinedAt: serverTimestamp(),
-          waitlistPosition: waitlistCount + 1,
-        });
-        transaction.update(eventRef, {
-          waitlistCount: waitlistCount + 1,
-          updatedAt: serverTimestamp(),
-        });
-        return 'waitlisted';
-      }
+  /**
+   * Remove invitation
+   */
+  async removeInvitation(eventId: string, userId: string): Promise<void> {
+    const eventRef = doc(db, 'events', eventId);
+    await updateDoc(eventRef, {
+      invitedUserIds: arrayRemove(userId),
+      updatedAt: serverTimestamp(),
     });
   },
 
-  // Leave event
-  async leaveEvent(eventId: string, userId: string): Promise<void> {
-    // First, check if there's someone on the waitlist to promote
-    const waitlistRef = collection(db, 'events', eventId, 'participants');
-    const waitlistQuery = query(
-      waitlistRef,
-      where('status', '==', 'waitlisted'),
-      orderBy('waitlistPosition', 'asc'),
-      limit(1)
-    );
-    const waitlistSnap = await getDocs(waitlistQuery);
-    const firstWaitlistedId = waitlistSnap.empty ? null : waitlistSnap.docs[0].id;
+  // ============================================
+  // Admin Operations
+  // ============================================
 
-    await runTransaction(db, async (transaction) => {
-      const eventRef = doc(db, 'events', eventId);
-      const participantRef = doc(db, 'events', eventId, 'participants', userId);
-      
-      const eventSnap = await transaction.get(eventRef);
-      const participantSnap = await transaction.get(participantRef);
-      
-      if (!eventSnap.exists()) throw new Error('Event not found');
-      if (!participantSnap.exists()) throw new Error('Not a participant');
-      
-      const eventData = eventSnap.data();
-      const participantData = participantSnap.data();
-      const wasJoined = participantData.status === 'joined';
-      const wasWaitlisted = participantData.status === 'waitlisted';
-
-      // Remove participant
-      transaction.delete(participantRef);
-
-      if (wasJoined) {
-        // Check if we need to promote someone from waitlist
-        if (firstWaitlistedId) {
-          const firstWaitlistedRef = doc(db, 'events', eventId, 'participants', firstWaitlistedId);
-          
-          // Promote the first waitlisted person - joinedCount stays the same, waitlistCount decreases
-          transaction.update(firstWaitlistedRef, {
-            status: 'joined',
-            waitlistPosition: null,
-          });
-          transaction.update(eventRef, {
-            // joinedCount stays the same (one left, one promoted)
-            waitlistCount: Math.max(0, (eventData.waitlistCount || 1) - 1),
-            updatedAt: serverTimestamp(),
-          });
-        } else {
-          // No one to promote, just decrement joined count
-          transaction.update(eventRef, {
-            joinedCount: Math.max(0, (eventData.joinedCount || 1) - 1),
-            updatedAt: serverTimestamp(),
-          });
-        }
-      } else if (wasWaitlisted) {
-        // Decrement waitlist count
-        transaction.update(eventRef, {
-          waitlistCount: Math.max(0, (eventData.waitlistCount || 1) - 1),
-          updatedAt: serverTimestamp(),
-        });
-      }
+  /**
+   * Add admin to event
+   */
+  async addAdmin(eventId: string, userId: string): Promise<void> {
+    const eventRef = doc(db, 'events', eventId);
+    await updateDoc(eventRef, {
+      adminIds: arrayUnion(userId),
+      updatedAt: serverTimestamp(),
     });
   },
 
-  // Invite user to event
-  async inviteUser(eventId: string, userId: string, invitedBy: string): Promise<void> {
-    const participantRef = doc(db, 'events', eventId, 'participants', userId);
-    await setDoc(participantRef, {
-      status: 'invited_pending',
-      role: 'player',
-      joinedAt: serverTimestamp(),
-      invitedBy,
+  /**
+   * Remove admin from event
+   */
+  async removeAdmin(eventId: string, userId: string): Promise<void> {
+    const eventRef = doc(db, 'events', eventId);
+    await updateDoc(eventRef, {
+      adminIds: arrayRemove(userId),
+      updatedAt: serverTimestamp(),
     });
-  },
-
-  // Accept invitation
-  async acceptInvitation(eventId: string, userId: string): Promise<'joined' | 'waitlisted'> {
-    return await this.joinEvent(eventId, userId);
-  },
-
-  // Decline invitation
-  async declineInvitation(eventId: string, userId: string): Promise<void> {
-    const participantRef = doc(db, 'events', eventId, 'participants', userId);
-    await updateDoc(participantRef, {
-      status: 'declined',
-    });
-  },
-
-  // Remove participant
-  async removeParticipant(eventId: string, userId: string): Promise<void> {
-    await this.leaveEvent(eventId, userId);
   },
 };

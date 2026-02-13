@@ -118,6 +118,46 @@ export const userService = {
     }));
   },
 
+  // Search users by name or email (for invite functionality)
+  async searchUsers(searchTerm: string, limit = 10): Promise<Array<{ id: string; displayName: string; photoUrl: string | null; email?: string }>> {
+    const usersRef = collection(db, 'users');
+    const searchTermLower = searchTerm.toLowerCase();
+    
+    // Search by display name prefix
+    const nameQuery = query(
+      usersRef,
+      where('displayNameLower', '>=', searchTermLower),
+      where('displayNameLower', '<=', searchTermLower + '\uf8ff')
+    );
+
+    const nameSnapshot = await getDocs(nameQuery);
+    const results = nameSnapshot.docs.slice(0, limit).map(doc => ({
+      id: doc.id,
+      displayName: doc.data().displayName,
+      photoUrl: doc.data().photoUrl,
+      email: doc.data().email,
+    }));
+
+    // If looks like email and no results, try email search
+    if (results.length === 0 && searchTerm.includes('@')) {
+      const emailQuery = query(
+        usersRef,
+        where('email', '==', searchTermLower)
+      );
+      const emailSnapshot = await getDocs(emailQuery);
+      emailSnapshot.docs.forEach(doc => {
+        results.push({
+          id: doc.id,
+          displayName: doc.data().displayName,
+          photoUrl: doc.data().photoUrl,
+          email: doc.data().email,
+        });
+      });
+    }
+
+    return results;
+  },
+
   // Get multiple users by IDs
   async getByIds(userIds: string[]): Promise<UserProfile[]> {
     if (userIds.length === 0) return [];

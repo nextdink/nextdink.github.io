@@ -1,26 +1,57 @@
 import { useState, useEffect, useCallback } from 'react';
 import { eventService } from '@/services/eventService';
 import { userService } from '@/services/userService';
-import type { Event, EventParticipant } from '@/types/event.types';
+import type { Event, TeamMember, RegisterTeamData } from '@/types/event.types';
+import type { UserProfile } from '@/types';
+import { 
+  getJoinedTeams, 
+  getWaitlistedTeams, 
+  isUserInEvent, 
+  getUserTeam, 
+  isTeamCaptain,
+} from '@/types/event.types';
 
 interface UseEventResult {
   event: Event | null;
-  participants: EventParticipant[];
   isLoading: boolean;
   error: Error | null;
   refetch: () => Promise<void>;
+  // Computed properties
+  joinedRegistrations: Event['registrations'];
+  waitlistedRegistrations: Event['registrations'];
+  isUserRegistered: boolean;
+  userRegistration: Event['registrations'][0] | undefined;
+  isUserCaptain: boolean;
+  // Invited users (not yet joined)
+  invitedUsers: UserProfile[];
+  isLoadingInvitedUsers: boolean;
+  // Actions
+  registerTeam: (members: TeamMember[]) => Promise<{ status: 'joined' | 'waitlisted' }>;
+  leaveEvent: () => Promise<void>;
+  claimSlot: (teamId: string, memberIndex: number) => Promise<{ status: 'joined' | 'waitlisted' }>;
+  isRegistering: boolean;
+  isLeaving: boolean;
+  isClaiming: boolean;
 }
 
-export function useEvent(eventCode: string | undefined): UseEventResult {
+export function useEvent(
+  eventCode: string | undefined, 
+  userId: string | undefined,
+  userDisplayName?: string,
+  userPhotoUrl?: string | null
+): UseEventResult {
   const [event, setEvent] = useState<Event | null>(null);
-  const [participants, setParticipants] = useState<EventParticipant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [isClaiming, setIsClaiming] = useState(false);
+  const [invitedUsers, setInvitedUsers] = useState<UserProfile[]>([]);
+  const [isLoadingInvitedUsers, setIsLoadingInvitedUsers] = useState(false);
 
   const fetchEvent = useCallback(async () => {
     if (!eventCode) {
       setEvent(null);
-      setParticipants([]);
       setIsLoading(false);
       return;
     }
@@ -29,36 +60,8 @@ export function useEvent(eventCode: string | undefined): UseEventResult {
     setError(null);
 
     try {
-      // Fetch event details by code
-      const eventData = await eventService.getByCode(eventCode);
-      setEvent(eventData);
-
-      // Fetch participants if event exists (using the event's internal ID)
-      if (eventData) {
-        const participantData = await eventService.getParticipants(eventData.id);
-        
-        // Fetch user profiles for all participants
-        if (participantData.length > 0) {
-          const userIds = participantData.map(p => p.id);
-          const userProfiles = await userService.getByIds(userIds);
-          
-          // Create a map of user profiles for quick lookup
-          const profileMap = new Map(userProfiles.map(u => [u.id, u]));
-          
-          // Merge user profile data into participants
-          const enrichedParticipants = participantData.map(participant => ({
-            ...participant,
-            displayName: profileMap.get(participant.id)?.displayName,
-            photoUrl: profileMap.get(participant.id)?.photoUrl,
-          }));
-          
-          setParticipants(enrichedParticipants);
-        } else {
-          setParticipants([]);
-        }
-      } else {
-        setParticipants([]);
-      }
+      const fetchedEvent = await eventService.getByCode(eventCode);
+      setEvent(fetchedEvent);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to fetch event'));
     } finally {
@@ -70,11 +73,134 @@ export function useEvent(eventCode: string | undefined): UseEventResult {
     fetchEvent();
   }, [fetchEvent]);
 
+  // Fetch invited users when event changes
+  useEffect(() => {
+    const fetchInvitedUsers = async () => {
+      if (!event || event.invitedUserIds.length === 0) {
+        setInvitedUsers([]);
+        return;
+      }
+
+      // Get all user IDs who are already registered in the event
+      const registeredUserIds = new Set<string>();
+      event.registrations.forEach(reg => {
+        reg.members.forEach(member => {
+          if (member.type === 'user' && member.userId) {
+            registeredUserIds.add(member.userId);
+          }
+        });
+      });
+
+      // Filter out users who have already joined
+      const pendingInvitedIds = event.invitedUserIds.filter(
+        id => !registeredUserIds.has(id)
+      );
+
+      if (pendingInvitedIds.length === 0) {
+        setInvitedUsers([]);
+        return;
+      }
+
+      setIsLoadingInvitedUsers(true);
+      try {
+        const users = await userService.getByIds(pendingInvitedIds);
+        setInvitedUsers(users);
+      } catch (err) {
+        console.error('Failed to fetch invited users:', err);
+        setInvitedUsers([]);
+      } finally {
+        setIsLoadingInvitedUsers(false);
+      }
+    };
+
+    fetchInvitedUsers();
+  }, [event]);
+
+  // Computed values
+  const joinedRegistrations = event ? getJoinedTeams(event) : [];
+  const waitlistedRegistrations = event ? getWaitlistedTeams(event) : [];
+  const isUserRegistered = event && userId ? isUserInEvent(event, userId) : false;
+  const userRegistration = event && userId ? getUserTeam(event, userId) : undefined;
+  const isUserCaptain = userRegistration && userId ? isTeamCaptain(userRegistration, userId) : false;
+
+  // Register a new team
+  const registerTeam = useCallback(async (members: TeamMember[]) => {
+    if (!event || !userId || !userDisplayName) {
+      throw new Error('Not authenticated');
+    }
+
+    setIsRegistering(true);
+    try {
+      const teamData: RegisterTeamData = { members };
+      const result = await eventService.registerTeam(
+        event.id, 
+        userId, 
+        userDisplayName, 
+        userPhotoUrl ?? null, 
+        teamData
+      );
+      await fetchEvent(); // Refresh event data
+      return result;
+    } finally {
+      setIsRegistering(false);
+    }
+  }, [event, userId, userDisplayName, userPhotoUrl, fetchEvent]);
+
+  // Leave the event
+  const leaveEvent = useCallback(async () => {
+    if (!event || !userId) {
+      throw new Error('Not authenticated');
+    }
+
+    setIsLeaving(true);
+    try {
+      await eventService.leaveTeam(event.id, userId);
+      await fetchEvent(); // Refresh event data
+    } finally {
+      setIsLeaving(false);
+    }
+  }, [event, userId, fetchEvent]);
+
+  // Claim a slot in an existing team
+  const claimSlot = useCallback(async (teamId: string, memberIndex: number) => {
+    if (!event || !userId || !userDisplayName) {
+      throw new Error('Not authenticated');
+    }
+
+    setIsClaiming(true);
+    try {
+      const result = await eventService.claimSlot(
+        event.id,
+        teamId,
+        memberIndex,
+        userId,
+        userDisplayName,
+        userPhotoUrl ?? null
+      );
+      await fetchEvent(); // Refresh event data
+      return result;
+    } finally {
+      setIsClaiming(false);
+    }
+  }, [event, userId, userDisplayName, userPhotoUrl, fetchEvent]);
+
   return {
     event,
-    participants,
     isLoading,
     error,
     refetch: fetchEvent,
+    joinedRegistrations,
+    waitlistedRegistrations,
+    isUserRegistered,
+    userRegistration,
+    isUserCaptain,
+    invitedUsers,
+    isLoadingInvitedUsers,
+    registerTeam,
+    leaveEvent,
+    claimSlot,
+    isRegistering,
+    isLeaving,
+    isClaiming,
   };
 }

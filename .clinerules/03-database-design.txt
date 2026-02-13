@@ -1,6 +1,8 @@
-juDb design
+Database Design
 
 Next Dink – Firestore Database Model (MVP)
+
+---
 
 COLLECTION: users
 Document ID: userId (Firebase Auth UID)
@@ -14,73 +16,81 @@ Fields:
 - createdAt (timestamp)
 - updatedAt (timestamp)
 
-SUBCOLLECTION: users/{userId}/notifications
-Document ID: notificationId
-
-Fields:
-- type (string) 
-  // invite, approved, waitlist_promoted, waitlist_position_changed, event_canceled, event_updated
-- relatedEntityId (string)  // usually eventId
-- isRead (boolean)
-- createdAt (timestamp)
+---
 
 COLLECTION: events
-Document ID: eventId
+Document ID: eventId (auto-generated)
 
 Fields:
 - name (string)
-- description (string)
+- description (string | null)
 - date (timestamp)          // start datetime
 - endTime (timestamp)
-- maxPlayers (number)
+
+// Team-based capacity (replaces maxPlayers)
+- teamSize (number)         // 1-4 players per team, default 1
+- maxTeams (number)         // max number of teams allowed
 
 // Location
 - venueName (string)
 - formattedAddress (string)
 - latitude (number)
 - longitude (number)
-- placeId (string)
+- placeId (string | null)
 
 // Visibility & Join Rules
-- visibility (string) 
-  // public, code, private
-- joinType (string)
-  // open, invite_only, approval
-
-- eventCode (string | null)
-  // Must be unique across all active events when not null
+- visibility (string)       // public, code, private
+- joinType (string)         // open, invite_only
+- eventCode (string)        // Always set, unique across active events
 
 // Status
-- status (string)
-  // active, canceled, completed
+- status (string)           // active, canceled, completed
 
 // Roles
 - ownerId (string)
 - adminIds (array<string>)
 
-// Counts (denormalized for fast reads)
-- joinedCount (number)
-- waitlistCount (number)
+// Team Registrations (embedded array - ordered by registration time)
+// Joined teams = first N where N = maxTeams
+// Waitlisted teams = remaining teams after maxTeams
+- registrations (array<TeamRegistration>)
+
+// Event-level invitations (for private/invite-only events)
+- invitedUserIds (array<string>)
 
 // System
 - createdAt (timestamp)
 - updatedAt (timestamp)
 
-SUBCOLLECTION: events/{eventId}/participants
-Document ID: userId
+---
+
+EMBEDDED TYPE: TeamRegistration
 
 Fields:
-- status (string)
-  // joined, invited_pending, waitlisted, declined
-- role (string)
-  // owner, admin, player
-- joinedAt (timestamp)
-- invitedBy (string | null)
-- waitlistPosition (number | null)
-  // Only set when status is waitlisted; used for ordering
+- id (string)               // Auto-generated UUID
+- createdBy (string)        // userId of team captain
+- createdAt (timestamp)     // For ordering (FIFO)
+- members (array<TeamMember>)  // Length must equal event.teamSize
+
+---
+
+EMBEDDED TYPE: TeamMember
+
+Fields:
+- type (string)             // 'user' | 'guest' | 'open'
+- userId (string | null)    // Only for type='user'
+- displayName (string | null)  // For 'user' (from profile) or 'guest' (entered name)
+- photoUrl (string | null)  // Only for type='user'
+
+Notes:
+- type='user': A registered user (only the team captain in MVP)
+- type='guest': A name entered by captain (can be claimed by any user)
+- type='open': "Looking for partner" slot (can be claimed by any user)
+
+---
 
 COLLECTION: lists
-Document ID: listId
+Document ID: listId (auto-generated)
 
 Fields:
 - name (string)
@@ -96,67 +106,100 @@ Fields:
 - addedAt (timestamp)
 - addedBy (string)
 
-OPTIONAL FUTURE COLLECTION (For Location Discovery Optimization)
+---
 
-COLLECTION: publicEvents
-Document ID: eventId
+CAPACITY CALCULATION (Client-Side)
 
-Fields:
-- eventId (string)
-- date (timestamp)
-- latitude (number)
-- longitude (number)
-- city (string)
-- createdAt (timestamp)
+No server-side counts needed. Calculate from registrations array:
 
-Purpose:
-- Used only for public event discovery queries
-- Mirrors minimal event data for efficient geo queries
+```typescript
+// Total capacity
+const totalCapacity = event.teamSize * event.maxTeams;
+
+// Joined teams = first maxTeams registrations
+const joinedTeams = event.registrations.slice(0, event.maxTeams);
+
+// Waitlisted teams = remaining registrations
+const waitlistedTeams = event.registrations.slice(event.maxTeams);
+
+// Count of filled player spots in joined teams
+const filledSpots = joinedTeams.reduce((sum, team) => 
+  sum + team.members.filter(m => m.type === 'user').length, 0);
+
+// Count of claimable spots (open + guest) in joined teams
+const claimableSpots = joinedTeams.reduce((sum, team) =>
+  sum + team.members.filter(m => m.type === 'open' || m.type === 'guest').length, 0);
+```
 
 ---
 
 FIRESTORE INDEXES
 
-The following composite indexes are required for efficient queries:
+Required composite indexes:
 
 1. events collection
    - Query: Public events by date
    - Fields: visibility (ASC), status (ASC), date (ASC)
 
 2. events collection
-   - Query: Public events by location and date
-   - Fields: visibility (ASC), status (ASC), latitude (ASC), longitude (ASC), date (ASC)
-
-3. events collection
    - Query: Events by owner
    - Fields: ownerId (ASC), date (DESC)
 
-4. events collection
+3. events collection
    - Query: Active events by eventCode (for uniqueness check)
    - Fields: eventCode (ASC), status (ASC)
 
-5. events/{eventId}/participants subcollection
-   - Query: Participants by status
-   - Fields: status (ASC), joinedAt (ASC)
-
-6. events/{eventId}/participants subcollection
-   - Query: Waitlisted participants by position
-   - Fields: status (ASC), waitlistPosition (ASC)
-
-7. users/{userId}/notifications subcollection
-   - Query: Unread notifications
-   - Fields: isRead (ASC), createdAt (DESC)
-
-8. lists collection
+4. lists collection
    - Query: Lists by owner
    - Fields: ownerId (ASC), createdAt (DESC)
+
+Note: No participant subcollection indexes needed - registrations are embedded in event document.
+
+---
+
+QUERY PATTERNS
+
+Find events where user is participant:
+- Query all active events
+- Filter client-side: registrations[].members[].userId contains currentUserId
+- Alternative: Maintain a separate userEvents collection for scale (future optimization)
+
+Find events where user is invited:
+- Query: events where invitedUserIds array-contains userId
+
+Find events by eventCode:
+- Query: events where eventCode == code AND status == 'active'
 
 ---
 
 VALIDATION RULES
 
 eventCode Uniqueness:
-- When creating or updating an event with an eventCode, validate that no other active event has the same eventCode
-- Query: events where eventCode == newCode AND status == "active" AND eventId != currentEventId
-- If results > 0, reject the operation
-- Implement in Cloud Functions or security rules
+- All events get an auto-generated eventCode
+- Must be unique across all active events
+- Query before create: events where eventCode == newCode AND status == 'active'
+- If results > 0, regenerate code and retry
+- Implement in application code (no Cloud Functions needed)
+
+Team Registration Validation:
+- team.members.length must equal event.teamSize
+- User can only be in one team per event (check before registering)
+- Only team captain (createdBy) can edit team members
+
+---
+
+DATA MIGRATION NOTE
+
+This model replaces the previous participant subcollection approach:
+- OLD: events/{eventId}/participants/{userId} subcollection
+- NEW: events.registrations[] embedded array
+
+Benefits:
+- Single document read for event + all participants
+- Client-side waitlist calculation (no Cloud Functions)
+- Atomic updates for team registration
+- Simpler querying for team-based display
+
+Limitations:
+- Document size limit (1MB) - sufficient for ~100+ teams
+- Full array rewrite on team updates (acceptable for MVP scale)

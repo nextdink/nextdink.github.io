@@ -38,7 +38,7 @@ Users can:
 - Create events
 - View events they created
 - View events they are invited to
-- View events they joined
+- View events they joined (as team member)
 - View public events (if visibility is Public)
 - Share event using native device share functionality
 
@@ -47,12 +47,20 @@ Event Fields (Required):
 - Date
 - Start time
 - End time
-- Max players
+- Team Size (1-4 players per team, default 1 for individual registration)
+- Number of Teams (how many teams/registrations allowed)
 - Venue Name
 - Address (selected via structured place search)
 
 Event Fields (Optional):
 - Description
+
+Capacity Calculation:
+- Total capacity = Team Size × Number of Teams
+- Example: Team Size 2, Number of Teams 4 = 8 players total
+- Note: Team size refers to how many people register together, not the game format
+  - Individual registration (1) works for any game format (singles, doubles with rotating partners, etc.)
+  - Group registration (2-4) allows friends to register together
 
 Location Requirements:
 
@@ -89,28 +97,54 @@ Event Visibility (Who Can See Event):
 Event Join Type (How Users Join):
 - Open (auto-join if space available)
 - Invite-only
-- Approval-required
 
-Player Status per Event:
-- Joined
-- Invited – Pending
-- Waitlisted
-- Declined
+---
+
+4. Registration System
+
+When joining an event, users register as a group (or individually):
+
+Registration:
+- Each registration has a Captain (the user who created the registration)
+- Registration has members equal to the event's Team Size
+- Registrations are ordered by time (FIFO)
+
+Member Types:
+- User: The captain (registered user who created the registration)
+- Guest: A name entered by the captain (person without an account)
+- Open: "Looking for +1" - an unfilled slot that anyone can claim
+
+Join Flow:
+- If Team Size = 1: Instant join (no modal, single-person registration)
+- If Team Size > 1: Modal appears to build team
+  - First slot is automatically the joining user
+  - Other slots can be: Guest name OR "Looking for +1"
+
+Claiming Slots:
+- Any user not already in the event can claim an Open or Guest slot
+- Claiming a Guest slot replaces the guest with the registered user
+- Claiming an Open slot fills the empty spot
 
 Capacity & Waitlist Rules:
-- If event is full, new joins go to waitlist
-- If a joined player leaves, first waitlisted player is auto-promoted
-- Waitlisted players receive notification when promoted
-- Waitlisted players receive notification when their position changes
-- Waitlisted players cannot decline promotion; they can leave the waitlist or leave after being promoted
-- If maxPlayers is reduced below current joinedCount, the last players to have joined are moved to the top of the waitlist
+- Joined registrations = first N registrations where N = Number of Teams
+- Waitlisted registrations = remaining registrations after capacity is full
+- Waitlist order determined by registration timestamp (FIFO)
+- If a joined registration leaves, first waitlisted one is auto-promoted
+- Waitlist position calculated client-side from registrations array order
 
-Event Editing Rules:
-- Events can be edited at any time while status is Active
-- Events cannot be edited after status is Completed or Canceled
-- Edits are allowed up until the event completion time
+Leaving:
+- If Captain leaves: Entire registration is removed from event
+- If Group Member leaves: Their slot becomes "Open" (looking for +1)
+- Note: In MVP with captain-only model, only captain is a registered user
 
-Event Roles:
+Editing Registration:
+- Only the Captain can edit their registration
+- Captain can: Change guest names, mark slots as open
+- Group members can only leave (which opens their slot)
+
+---
+
+5. Event Roles
 
 Each event has:
 - One Owner
@@ -119,7 +153,7 @@ Each event has:
 Owner can:
 - Invite individual users
 - Invite entire list
-- Remove players
+- Remove registrations
 - Promote users to admin
 - Demote admins
 - Remove admins
@@ -129,7 +163,7 @@ Owner can:
 Admins can:
 - Invite users
 - Add other admins
-- Remove players
+- Remove registrations
 - Edit event details
 
 Rules:
@@ -137,7 +171,14 @@ Rules:
 - Admins can add other admins
 - Only Owner can remove admins
 
-4. Lists (Private Invite Tool)
+Event Editing Rules:
+- Events can be edited at any time while status is Active
+- Events cannot be edited after status is Completed or Canceled
+- Edits are allowed up until the event completion time
+
+---
+
+6. Lists (Private Invite Tool)
 
 Each list has:
 - Name
@@ -162,19 +203,18 @@ Rules:
 - List members cannot see that they are on a list
 - Lists have no chat functionality
 
-5. Notifications (In-App Only for MVP)
+---
 
-Notification Fields:
-- ID
-- Type
-- RelatedEntityId (event, invite, etc.)
-- IsRead
-- CreatedAt
+7. Notifications (Deferred - Not in MVP)
 
-Notification Triggers:
+Notifications are planned for post-MVP. For MVP:
+- Users check their Home page to see events they're part of
+- Users check Event Detail page to see team status
+- No push notifications or in-app notification center
+
+Future notification triggers (post-MVP):
 - Invited to event
-- Approved to join event
-- Moved off waitlist (promoted to joined)
-- Waitlist position changed
+- Someone claimed a slot on your team
+- Your team was promoted from waitlist
 - Event canceled
 - Event updated

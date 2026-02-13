@@ -47,23 +47,20 @@ PROJECT STRUCTURE
     useUser.ts         # Current user data
     useEvent.ts        # Single event operations
     useEvents.ts       # Event list queries
-    useParticipants.ts # Event participants
+    useTeamRegistration.ts # Team registration and slot claiming
     useList.ts         # List operations
-    useNotifications.ts# Notifications
     useTheme.ts        # Dark mode / theme
   
   /services            # Firebase service functions
     authService.ts     # Firebase Auth operations
     userService.ts     # User CRUD operations
-    eventService.ts    # Event CRUD operations
+    eventService.ts    # Event CRUD operations (includes team registration)
     listService.ts     # List CRUD operations
-    notificationService.ts
   
   /types               # TypeScript type definitions
     user.types.ts
-    event.types.ts
+    event.types.ts     # Includes TeamRegistration, TeamMember types
     list.types.ts
-    notification.types.ts
   
   /utils               # Utility functions
     avatarUtils.ts     # Deterministic avatar generation (identicon-style)
@@ -100,25 +97,33 @@ Example structure:
 
 import { useParams } from 'react-router-dom';
 import { useEvent } from '@/hooks/useEvent';
-import { useParticipants } from '@/hooks/useParticipants';
+import { useTeamRegistration } from '@/hooks/useTeamRegistration';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { EventHeader } from '@/components/common/EventHeader';
-import { ParticipantList } from '@/components/common/ParticipantList';
+import { TeamList } from '@/components/common/TeamList';
 import { Button } from '@/components/ui/Button';
 
 export function EventDetailView() {
-  const { eventId } = useParams();
-  const { event, isLappoading, error } = useEvent(eventId);
-  const { participants, join, leave } = useParticipants(eventId);
+  const { eventCode } = useParams();
+  const { event, isLoading, error } = useEvent(eventCode);
+  const { registerTeam, claimSlot, leaveTeam } = useTeamRegistration(event?.id);
 
   if (isLoading) return <PageLayout><Spinner /></PageLayout>;
   if (error || !event) return <PageLayout><ErrorState /></PageLayout>;
 
+  // Calculate joined/waitlisted teams client-side
+  const joinedTeams = event.registrations.slice(0, event.maxTeams);
+  const waitlistedTeams = event.registrations.slice(event.maxTeams);
+
   return (
     <PageLayout>
       <EventHeader event={event} />
-      <ParticipantList participants={participants} />
-      <Button onClick={join}>Join Event</Button>
+      <TeamList 
+        joinedTeams={joinedTeams}
+        waitlistedTeams={waitlistedTeams}
+        onClaimSlot={claimSlot}
+      />
+      <Button onClick={() => registerTeam(...)}>Join Event</Button>
     </PageLayout>
   );
 }
@@ -177,19 +182,35 @@ Larger reusable components in /components/common:
 
 UserRow.tsx
 - Avatar + name + optional badge
-- Used in participant lists, member lists
+- Used in team member displays, member lists
 
 EventCard.tsx
 - Event summary card for lists
-- Name, date, time, venue, capacity
+- Name, date, time, venue, team capacity
 
 EventHeader.tsx
 - Event detail page header
 - Name, date, organizer, status
 
-ParticipantList.tsx
-- Grouped list of participants
-- Sections: Joined, Invited, Waitlisted
+TeamCard.tsx
+- Single team display with captain and members
+- Shows member types: user (✓), guest (👤), open (○)
+- Claim button for open/guest slots
+- Edit/Leave actions for captain
+
+TeamList.tsx
+- Groups teams by status (Joined vs Waitlisted)
+- Renders TeamCard for each team
+- Shows waitlist position for waitlisted teams
+
+TeamRegistrationModal.tsx
+- Modal for building a team when joining
+- Auto-fills first slot with current user
+- Options for additional slots: guest name or "looking for partner"
+
+ClaimSlotModal.tsx
+- Confirmation modal for claiming open/guest slots
+- Shows team captain and slot being claimed
 
 LocationDisplay.tsx
 - Venue name + address + tap to open maps

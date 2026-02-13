@@ -13,7 +13,7 @@ import { ROUTES } from '@/config/routes';
 export function HomeView() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { ownedEvents, upcomingEvents, isLoading, error } = useEvents(user?.uid);
+  const { ownedEvents, invitedEvents, upcomingEvents, isLoading, error } = useEvents(user?.uid);
 
   // Get the next upcoming event (first in the sorted list)
   const nextEvent = upcomingEvents[0];
@@ -22,6 +22,9 @@ export function HomeView() {
 
   // Filter owned events to only show active ones
   const activeOwnedEvents = ownedEvents.filter(e => e.status === 'active');
+  
+  // Filter invited events to only show active ones
+  const activeInvitedEvents = invitedEvents.filter(e => e.status === 'active');
 
   if (isLoading) {
     return (
@@ -81,6 +84,20 @@ export function HomeView() {
             />
           )}
         </section>
+
+        {/* Invitations */}
+        {activeInvitedEvents.length > 0 && (
+          <section>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">
+              Invitations
+            </h2>
+            <div className="space-y-3">
+              {activeInvitedEvents.map(event => (
+                <EventCard key={event.id} event={event} showInviteBadge />
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Other Upcoming Events */}
         {otherUpcomingEvents.length > 0 && (

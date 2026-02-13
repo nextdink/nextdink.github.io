@@ -12,9 +12,7 @@ Bottom Navigation (3 Tabs):
 2. Discover
 3. Profile
 
-Notifications:
-- Bell icon in top right on all main screens
-- Red badge indicator for unread
+Note: Notifications are deferred to post-MVP.
 
 --------------------------------------------------
 1. HOME (Mission Control)
@@ -29,20 +27,18 @@ A. Next Upcoming Event (Large Card)
 - Event name
 - Date + time
 - Venue name
-- Capacity (6 / 8)
-- Status (Confirmed / Waitlisted)
+- Teams (3 / 4 teams) or Spots (6 / 8 spots)
+- Your status (Joined / Waitlisted)
 
 B. Other Upcoming Events
 
 C. Invitations (if any)
-- Accept
-- Decline
+- Event card with Accept / Decline buttons
 
 D. Events You Own
 
 E. Quick Actions
 - Create Event
-- View Lists
 
 --------------------------------------------------
 2. DISCOVER (Public Events)
@@ -57,10 +53,10 @@ Event Card Layout:
 - Date
 - Time
 - Venue name
-- Spots filled (6 / 8)
+- Teams filled (3 / 4) or Spots (6 / 8)
+- Open spots indicator (2 open slots)
 - Distance (if location enabled)
 - Join button
-- "Approval Required" badge if applicable
 
 Empty State:
 - "No events found"
@@ -81,6 +77,7 @@ Sections:
 - Lists
 - Settings
   - Account settings
+  - Theme toggle
   - Logout
 
 --------------------------------------------------
@@ -100,76 +97,74 @@ Location Section:
 
 Capacity Section:
 - Visual capacity bar
-- Text: 6 / 8 spots filled
+- Text: "3 / 4 teams" (or "6 / 8 spots" for singles)
+- Secondary text: "2 open slots available" (if applicable)
 
 Description Section:
 - Shown only if present
 - Preserves line breaks
 - Max 500 characters
 
-Participants Section:
+--------------------------------------------------
+TEAMS SECTION (Replaces Participants)
+--------------------------------------------------
 
-Single unified list with profile photos.
+Display teams as cards, grouped by status:
 
-Sections in order:
+**Joined Teams:**
+Each team card shows:
+- Team captain (with 👑 badge)
+- Team members list:
+  - ✓ User (profile photo + name)
+  - 👤 Guest (name only, italic)
+  - ○ Open slot ("Looking for partner" + [Claim] button)
 
-1. Joined
-2. Invited – Pending
-3. Waitlist (collapsed if empty)
+**Waitlisted Teams:**
+- Same card layout as joined
+- Position indicator: "#1 on waitlist"
 
-Each user row includes:
-- Profile photo
-- Display name
-- Role badge (if applicable)
-  - Owner
-  - Admin
+Team Card Actions (for team captain):
+- Edit Team (opens modal to change members)
+- Leave Event (removes entire team)
 
-Rules:
-- Owner is NOT automatically joined
-- Owner must tap Join to play
-- Admins only appear if they are in one of the participant states
-- Admins not participating do not appear in list
+Claim Slot Action (for non-participants):
+- Shown on Open and Guest slots
+- Tap → Confirmation modal
+- Join that team in the claimed slot
 
-Sticky Bottom Action Area:
+--------------------------------------------------
+JOIN FLOW
+--------------------------------------------------
 
-If not joined:
-- Join
-or
-- Request to Join
+When user taps "Join Event":
 
-If joined:
-- Leave Event
+If teamSize = 1 (Singles):
+- Instant join
+- No modal needed
+- Single-member team created
 
-Owner sees:
-- Edit Event
-- Cancel Event
+If teamSize > 1 (Doubles/Teams):
+- Modal opens: "Build Your Team"
+- First slot: You (auto-filled)
+- Additional slots (based on teamSize):
+  - Option A: Enter guest name
+  - Option B: "Looking for partner" (open slot)
+- Submit → Team registered
 
-Admins see:
-- Invite Players
-- Manage Participants
-
-Leaving Behavior:
-- Participants can leave at any time
-- Confirmation modal shown
-- If waitlist exists → auto-promote first waitlisted player
-- Promoted player receives notification
-
-Edit Behavior:
-If any of these fields change:
-- Date
-- Time
-- Location
-- Max players
-- Description
-- Join type
-- Visibility
-
-Then:
-- All joined + waitlisted participants receive notification
-- "Event [Name] was updated."
-
-Event detail shows:
-- "Last updated: [timestamp]"
+Team Registration Modal Layout:
+```
+┌─────────────────────────────────┐
+│     Build Your Team             │
+├─────────────────────────────────┤
+│ 1. You (@username)          [✓] │
+│                                 │
+│ 2. [                         ]  │
+│    ○ Enter partner's name       │
+│    ○ Looking for partner        │
+├─────────────────────────────────┤
+│        [Cancel]  [Register]     │
+└─────────────────────────────────┘
+```
 
 --------------------------------------------------
 CREATE EVENT
@@ -186,7 +181,9 @@ Step 1 – Basic Info
 - Date
 - Start time
 - End time
-- Max players
+- Team Size: [1] [2] [3] [4] (default: 1)
+- Number of Teams: [___] (number input, default: 8)
+- Helper text: "8 players total" (calculated)
 
 Step 2 – Location
 - Search using place autocomplete
@@ -198,20 +195,66 @@ Step 2 – Location
 Step 3 – Rules
 - Visibility:
   - Public
-  - Code
+  - Code-based
   - Private
 - Join Type:
   - Open
   - Invite-only
-  - Approval required
-
-Step 4 – Invite (optional)
-- Search users
-- Invite List
 
 Review Screen:
-- Summary
-- Create Event
+- Summary with all details
+- Team Size × Max Teams = Total Spots
+- Create Event button
+
+--------------------------------------------------
+EDIT TEAM MODAL (Captain Only)
+--------------------------------------------------
+
+Opened when team captain taps "Edit Team":
+
+```
+┌─────────────────────────────────┐
+│     Edit Your Team              │
+├─────────────────────────────────┤
+│ 1. You (@username)          [✓] │
+│                                 │
+│ 2. Bob (guest)              [✎] │
+│    [Change name] [Remove]       │
+│                                 │
+│ 3. Looking for partner      [✎] │
+│    [Add guest name]             │
+├─────────────────────────────────┤
+│        [Cancel]    [Save]       │
+└─────────────────────────────────┘
+```
+
+Captain can:
+- Change guest names
+- Convert filled slot to "open"
+- Cannot remove themselves (must leave team instead)
+
+--------------------------------------------------
+CLAIM SLOT CONFIRMATION
+--------------------------------------------------
+
+When user taps "Claim" on an open/guest slot:
+
+```
+┌─────────────────────────────────┐
+│     Join Team?                  │
+├─────────────────────────────────┤
+│ Join Alice's team as:           │
+│ "Looking for partner" slot      │
+│                                 │
+│ You'll be added to this team    │
+│ for the event.                  │
+├─────────────────────────────────┤
+│     [Cancel]  [Join Team]       │
+└─────────────────────────────────┘
+```
+
+For guest slots:
+- "Join Alice's team, replacing 'Bob'"
 
 --------------------------------------------------
 LIST DETAIL PAGE
@@ -235,18 +278,31 @@ Lists are private.
 No chat.
 
 --------------------------------------------------
-NOTIFICATIONS
+LEAVING BEHAVIOR
 --------------------------------------------------
 
-Triggered by:
-- Event invite
-- Approval to join
-- Waitlist promotion
-- Waitlist position changed
-- Event updated
-- Event canceled
+**Team Captain leaves:**
+- Confirmation modal: "This will remove your entire team from the event"
+- Entire team removed
+- If waitlisted teams exist → first one auto-promoted
 
-Tap notification → Opens event page
+**Team Member leaves (post-MVP when users can be added to teams):**
+- Their slot becomes "Open" (looking for partner)
+- Team stays registered
+
+--------------------------------------------------
+OWNER/ADMIN ACTIONS
+--------------------------------------------------
+
+Owner sees on Event Detail:
+- Edit Event
+- Cancel Event
+- Remove Team (on each team card)
+
+Admins see:
+- Edit Event
+- Invite Players
+- Remove Team
 
 --------------------------------------------------
 DESIGN PRINCIPLES
@@ -262,5 +318,6 @@ DESIGN PRINCIPLES
 - No engagement mechanics
 - Fast creation flow
 - Clear capacity visibility
+- Clear team structure
 - Clear ownership visibility
 - Clear state transitions
