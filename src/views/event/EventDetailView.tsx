@@ -67,7 +67,6 @@ export function EventDetailView() {
     isClaiming,
     isDeclining,
     isDecliningEvent,
-    isDeleting,
   } = useEvent(
     eventCode,
     user?.uid,
@@ -719,36 +718,6 @@ export function EventDetailView() {
               </Card>
             ))}
         </section>
-
-        {/* Danger Zone - Delete Event (owner only) */}
-        {isOwner && (
-          <section className="pt-4 border-t border-slate-200 dark:border-slate-800">
-            <h2 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-3">
-              Danger Zone
-            </h2>
-            <Card>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                    Delete Event
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Permanently delete this event and all registrations
-                  </p>
-                </div>
-                <Button
-                  variant="secondary"
-                  onClick={handleDelete}
-                  loading={isDeleting}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Delete
-                </Button>
-              </div>
-            </Card>
-          </section>
-        )}
       </div>
 
       {/* Team Registration Modal */}

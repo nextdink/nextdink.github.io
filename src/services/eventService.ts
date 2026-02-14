@@ -327,6 +327,40 @@ export const eventService = {
     );
   },
 
+  /**
+   * Get events where user has declined
+   */
+  async getByDeclinedUser(userId: string): Promise<Event[]> {
+    const eventsRef = collection(db, "events");
+    const q = query(
+      eventsRef,
+      where("declinedUserIds", "array-contains", userId),
+      where("status", "==", "active"),
+    );
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((eventDoc) =>
+      docToEvent(eventDoc.id, eventDoc.data()),
+    );
+  },
+
+  /**
+   * Get events where user is an admin
+   */
+  async getByAdmin(userId: string): Promise<Event[]> {
+    const eventsRef = collection(db, "events");
+    const q = query(
+      eventsRef,
+      where("adminIds", "array-contains", userId),
+      where("status", "==", "active"),
+    );
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((eventDoc) =>
+      docToEvent(eventDoc.id, eventDoc.data()),
+    );
+  },
+
   // ============================================
   // Team Registration Operations
   // ============================================
@@ -355,6 +389,7 @@ export const eventService = {
         []) as TeamRegistration[];
       const teamSize = eventData.teamSize as number;
       const maxTeams = eventData.maxTeams as number;
+      const declinedUserIds = (eventData.declinedUserIds || []) as string[];
 
       // Validate team size
       if (teamData.members.length !== teamSize) {
@@ -398,8 +433,14 @@ export const eventService = {
       // Add to registrations array
       const updatedRegistrations = [...registrations, newTeam];
 
+      // Remove user from declinedUserIds if they were previously declined
+      const updatedDeclinedUserIds = declinedUserIds.filter(
+        (id) => id !== userId,
+      );
+
       transaction.update(eventRef, {
         registrations: updatedRegistrations,
+        declinedUserIds: updatedDeclinedUserIds,
         updatedAt: serverTimestamp(),
       });
 
@@ -501,6 +542,7 @@ export const eventService = {
       const registrations = (eventData.registrations ||
         []) as TeamRegistration[];
       const maxTeams = eventData.maxTeams as number;
+      const declinedUserIds = (eventData.declinedUserIds || []) as string[];
 
       // Check if user is already in a team
       const isAlreadyRegistered = registrations.some((team) =>
@@ -546,8 +588,14 @@ export const eventService = {
       const updatedRegistrations = [...registrations];
       updatedRegistrations[teamIndex] = updatedTeam;
 
+      // Remove user from declinedUserIds if they were previously declined
+      const updatedDeclinedUserIds = declinedUserIds.filter(
+        (id) => id !== userId,
+      );
+
       transaction.update(eventRef, {
         registrations: updatedRegistrations,
+        declinedUserIds: updatedDeclinedUserIds,
         updatedAt: serverTimestamp(),
       });
 

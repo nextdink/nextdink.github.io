@@ -1,41 +1,41 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Calendar, Search } from "lucide-react";
+import { Plus, Calendar, Search, Mail, X } from "lucide-react";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Spinner } from "@/components/ui/Spinner";
 import { Input } from "@/components/ui/Input";
+import { TabBar } from "@/components/ui/TabBar";
 import { EventCard } from "@/components/common/EventCard";
 import { useAuth } from "@/hooks/useAuth";
-import { useEvents } from "@/hooks/useEvents";
+import { useEvents, type EventWithStatus } from "@/hooks/useEvents";
 import { eventService } from "@/services/eventService";
 import { ROUTES } from "@/config/routes";
 
 export function HomeView() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { ownedEvents, invitedEvents, upcomingEvents, isLoading, error } =
-    useEvents(user?.uid);
+  const {
+    scheduleEvents,
+    invitedEvents,
+    declinedEvents,
+    inviteCount,
+    isLoading,
+    error,
+    refetch,
+  } = useEvents(user?.uid);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<"schedule" | "invites">(
+    "schedule",
+  );
 
   // Event code search state
   const [eventCode, setEventCode] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-
-  // Get the next upcoming event (first in the sorted list)
-  const nextEvent = upcomingEvents[0];
-  // Other upcoming events (excluding the first one)
-  const otherUpcomingEvents = upcomingEvents.slice(1);
-
-  // Filter owned events to only show active ones
-  const activeOwnedEvents = ownedEvents.filter((e) => e.status === "active");
-
-  // Filter invited events to only show active ones
-  const activeInvitedEvents = invitedEvents.filter(
-    (e) => e.status === "active",
-  );
 
   // Handle event code search
   const handleFindEvent = async () => {
@@ -69,6 +69,23 @@ export function HomeView() {
     }
   };
 
+  // Handle accept invitation
+  const handleAcceptInvite = async (eventWithStatus: EventWithStatus) => {
+    // Navigate to event page to complete registration
+    navigate(`/event/${eventWithStatus.event.eventCode}`);
+  };
+
+  // Handle decline invitation
+  const handleDeclineInvite = async (eventWithStatus: EventWithStatus) => {
+    if (!user) return;
+    try {
+      await eventService.declineInvitation(eventWithStatus.event.id, user.uid);
+      refetch();
+    } catch (err) {
+      console.error("Failed to decline invitation:", err);
+    }
+  };
+
   if (isLoading) {
     return (
       <PageLayout>
@@ -97,10 +114,25 @@ export function HomeView() {
     );
   }
 
+  const tabs = [
+    {
+      id: "schedule",
+      label: "Schedule",
+      icon: <Calendar className="w-4 h-4" />,
+      count: scheduleEvents.length,
+    },
+    {
+      id: "invites",
+      label: "Invites",
+      icon: <Mail className="w-4 h-4" />,
+      count: inviteCount,
+    },
+  ];
+
   return (
     <PageLayout>
-      <div className="space-y-6">
-        {/* Find Event by Code */}
+      <div className="space-y-4">
+        {/* Find Event by Code - At the very top */}
         <section>
           <div className="flex gap-2">
             <div className="flex-1 relative">
@@ -120,7 +152,7 @@ export function HomeView() {
               />
             </div>
             <Button onClick={handleFindEvent} loading={isSearching}>
-              Find Event
+              Find
             </Button>
           </div>
           {searchError && (
@@ -130,86 +162,234 @@ export function HomeView() {
           )}
         </section>
 
-        {/* Quick Actions */}
-        <div className="flex gap-3">
+        {/* Tab Bar - Under search */}
+        <TabBar
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={(tabId) => setActiveTab(tabId as "schedule" | "invites")}
+        />
+
+        {/* Tab Content */}
+        {activeTab === "schedule" ? (
+          <ScheduleTab
+            scheduleEvents={scheduleEvents}
+            onCreateEvent={() => navigate(ROUTES.CREATE_EVENT)}
+          />
+        ) : (
+          <InvitesTab
+            invitedEvents={invitedEvents}
+            declinedEvents={declinedEvents}
+            onAccept={handleAcceptInvite}
+            onDecline={handleDeclineInvite}
+          />
+        )}
+
+        {/* Create Event Button */}
+        <div className="pt-2">
           <Button
             onClick={() => navigate(ROUTES.CREATE_EVENT)}
-            className="flex-1"
+            className="w-full"
             variant="secondary"
           >
             <Plus className="w-5 h-5" />
             Create Event
           </Button>
         </div>
-
-        {/* Next Upcoming Event */}
-        <section>
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">
-            Next Up
-          </h2>
-          {nextEvent ? (
-            <EventCard event={nextEvent} />
-          ) : (
-            <EmptyState
-              icon={Calendar}
-              title="No upcoming events"
-              description="Create or join an event to get started"
-              action={{
-                label: "Create Event",
-                onClick: () => navigate(ROUTES.CREATE_EVENT),
-              }}
-            />
-          )}
-        </section>
-
-        {/* Invitations */}
-        {activeInvitedEvents.length > 0 && (
-          <section>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">
-              Invitations
-            </h2>
-            <div className="space-y-3">
-              {activeInvitedEvents.map((event) => (
-                <EventCard key={event.id} event={event} showInviteBadge />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Other Upcoming Events */}
-        {otherUpcomingEvents.length > 0 && (
-          <section>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">
-              Coming Up
-            </h2>
-            <div className="space-y-3">
-              {otherUpcomingEvents.map((event) => (
-                <EventCard key={event.id} event={event} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Events You Own */}
-        <section>
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">
-            Your Events
-          </h2>
-          {activeOwnedEvents.length > 0 ? (
-            <div className="space-y-3">
-              {activeOwnedEvents.map((event) => (
-                <EventCard key={event.id} event={event} />
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
-                No events created yet
-              </p>
-            </Card>
-          )}
-        </section>
       </div>
     </PageLayout>
+  );
+}
+
+// Schedule Tab Component
+interface ScheduleTabProps {
+  scheduleEvents: EventWithStatus[];
+  onCreateEvent: () => void;
+}
+
+function ScheduleTab({ scheduleEvents, onCreateEvent }: ScheduleTabProps) {
+  if (scheduleEvents.length === 0) {
+    return (
+      <EmptyState
+        icon={Calendar}
+        title="No upcoming events"
+        description="Create or join an event to get started"
+        action={{
+          label: "Create Event",
+          onClick: onCreateEvent,
+        }}
+      />
+    );
+  }
+
+  // First event is the "next up" hero card
+  const nextEvent = scheduleEvents[0];
+  const otherEvents = scheduleEvents.slice(1);
+
+  return (
+    <div className="space-y-4">
+      {/* Next Up - Hero Card */}
+      <section>
+        <h2 className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+          Next Up
+        </h2>
+        <EventCard
+          event={nextEvent.event}
+          userStatus={nextEvent.status}
+          registrationStatus={nextEvent.registrationStatus}
+          waitlistPosition={nextEvent.waitlistPosition}
+        />
+      </section>
+
+      {/* Other Upcoming Events */}
+      {otherEvents.length > 0 && (
+        <section>
+          <h2 className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+            Coming Up
+          </h2>
+          <div className="space-y-3">
+            {otherEvents.map((eventWithStatus) => (
+              <EventCard
+                key={eventWithStatus.event.id}
+                event={eventWithStatus.event}
+                userStatus={eventWithStatus.status}
+                registrationStatus={eventWithStatus.registrationStatus}
+                waitlistPosition={eventWithStatus.waitlistPosition}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+// Invites Tab Component
+interface InvitesTabProps {
+  invitedEvents: EventWithStatus[];
+  declinedEvents: EventWithStatus[];
+  onAccept: (event: EventWithStatus) => void;
+  onDecline: (event: EventWithStatus) => void;
+}
+
+function InvitesTab({
+  invitedEvents,
+  declinedEvents,
+  onAccept,
+  onDecline,
+}: InvitesTabProps) {
+  const hasInvites = invitedEvents.length > 0;
+  const hasDeclined = declinedEvents.length > 0;
+
+  if (!hasInvites && !hasDeclined) {
+    return (
+      <EmptyState
+        icon={Mail}
+        title="No invitations"
+        description="When someone invites you to an event, it will appear here"
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Pending Invitations */}
+      {hasInvites && (
+        <section>
+          <h2 className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+            Pending ({invitedEvents.length})
+          </h2>
+          <div className="space-y-3">
+            {invitedEvents.map((eventWithStatus) => (
+              <InviteCard
+                key={eventWithStatus.event.id}
+                eventWithStatus={eventWithStatus}
+                onAccept={() => onAccept(eventWithStatus)}
+                onDecline={() => onDecline(eventWithStatus)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Declined Events */}
+      {hasDeclined && (
+        <section>
+          <h2 className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+            Declined ({declinedEvents.length})
+          </h2>
+          <div className="space-y-3">
+            {declinedEvents.map((eventWithStatus) => (
+              <EventCard
+                key={eventWithStatus.event.id}
+                event={eventWithStatus.event}
+                userStatus="declined"
+                isDeclined
+              />
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+// Invite Card with Accept/Decline buttons
+interface InviteCardProps {
+  eventWithStatus: EventWithStatus;
+  onAccept: () => void;
+  onDecline: () => void;
+}
+
+function InviteCard({ eventWithStatus, onAccept, onDecline }: InviteCardProps) {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleDecline = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsLoading(true);
+    try {
+      await onDecline();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAccept = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onAccept();
+  };
+
+  return (
+    <Card className="border-l-4 border-l-blue-500">
+      <div className="space-y-3">
+        {/* Event Info */}
+        <EventCard
+          event={eventWithStatus.event}
+          userStatus="invited"
+          className="border-0 p-0 shadow-none hover:border-0"
+        />
+
+        {/* Action Buttons */}
+        <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+          <Button
+            onClick={handleAccept}
+            variant="primary"
+            size="small"
+            className="flex-1"
+          >
+            Accept
+          </Button>
+          <Button
+            onClick={handleDecline}
+            variant="secondary"
+            size="small"
+            className="flex-1"
+            loading={isLoading}
+          >
+            <X className="w-4 h-4" />
+            Decline
+          </Button>
+        </div>
+      </div>
+    </Card>
   );
 }
