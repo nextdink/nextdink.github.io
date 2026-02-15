@@ -8,6 +8,7 @@ interface PageLayoutProps {
   children: ReactNode;
   title?: string;
   showBack?: boolean;
+  backTo?: string; // Optional explicit back destination
   showBottomNav?: boolean;
   showNotifications?: boolean;
   headerActions?: ReactNode;
@@ -18,12 +19,21 @@ export function PageLayout({
   children,
   title,
   showBack = false,
+  backTo,
   showBottomNav = true,
   showNotifications = true,
   headerActions,
   className = "",
 }: PageLayoutProps) {
   const navigate = useNavigate();
+
+  const handleBack = () => {
+    if (backTo) {
+      navigate(backTo);
+    } else {
+      navigate(-1);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -34,7 +44,7 @@ export function PageLayout({
             <div className="flex items-center gap-3">
               {showBack && (
                 <button
-                  onClick={() => navigate(-1)}
+                  onClick={handleBack}
                   className="p-2 -ml-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
                 >
                   <ArrowLeft className="w-5 h-5" />

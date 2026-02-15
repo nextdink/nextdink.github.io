@@ -12,7 +12,7 @@ import { EventCard } from "@/components/common/EventCard";
 import { useAuth } from "@/hooks/useAuth";
 import { useEvents, type EventWithStatus } from "@/hooks/useEvents";
 import { eventService } from "@/services/eventService";
-import { ROUTES } from "@/config/routes";
+import { ROUTES, getEventRoute } from "@/config/routes";
 
 export function HomeView() {
   const navigate = useNavigate();
@@ -51,7 +51,7 @@ export function HomeView() {
     try {
       const event = await eventService.getByCode(trimmedCode);
       if (event) {
-        navigate(`/event/${event.eventCode}`);
+        navigate(getEventRoute(event.eventCode));
       } else {
         setSearchError("Event not found. Please check the code and try again.");
       }
@@ -72,7 +72,7 @@ export function HomeView() {
   // Handle accept invitation
   const handleAcceptInvite = async (eventWithStatus: EventWithStatus) => {
     // Navigate to event page to complete registration
-    navigate(`/event/${eventWithStatus.event.eventCode}`);
+    navigate(getEventRoute(eventWithStatus.event.eventCode));
   };
 
   // Handle decline invitation

@@ -1,4 +1,4 @@
-import { User, UserPlus, LogOut, Edit } from "lucide-react";
+import { User, UserPlus, LogOut, Edit, Check } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import type { TeamRegistration, TeamMember } from "@/types/event.types";
@@ -35,68 +35,95 @@ export function RegistrationCard({
   const captain = registration.members[0];
   const captainName = captain?.displayName || "Unknown";
 
+  // Check if captain is a guest (claimable)
+  const isCaptainGuest = captain?.type === "guest";
+
+  const hasAdditionalMembers = teamSize > 1;
+
   return (
-    <Card className={`${isWaitlisted ? "opacity-75" : ""} ${className}`}>
+    <Card className={`p-3 ${isWaitlisted ? "opacity-75" : ""} ${className}`}>
       {/* Header with captain info */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
-          {captain?.photoUrl ? (
+      <div
+        className={`flex items-center justify-between ${hasAdditionalMembers ? "mb-1" : ""}`}
+      >
+        <div className="flex items-center gap-2">
+          {/* Captain avatar */}
+          {captain?.type === "user" && captain?.photoUrl ? (
             <img
               src={captain.photoUrl}
               alt=""
               className="w-6 h-6 rounded-full"
             />
+          ) : isCaptainGuest ? (
+            <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+              <User className="w-3 h-3 text-slate-400" />
+            </div>
           ) : (
             <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
-              <User className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+              <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
             </div>
           )}
-          <div>
-            <p className="text-sm text-slate-900 dark:text-slate-100">
-              {captainName}
-            </p>
-            {isWaitlisted && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">
-                #{waitlistPosition} on waitlist
-              </p>
-            )}
-          </div>
+          {/* Captain name */}
+          <span
+            className={`text-sm ${isCaptainGuest ? "italic text-slate-500 dark:text-slate-400" : "text-slate-900 dark:text-slate-100"}`}
+          >
+            {captainName}
+          </span>
+          {/* Waitlist indicator */}
+          {isWaitlisted && (
+            <span className="text-xs text-amber-600 dark:text-amber-400">
+              #{waitlistPosition}
+            </span>
+          )}
         </div>
 
-        {/* Actions for captain */}
-        {isCurrentUserCaptain && (
-          <div className="flex items-center gap-1">
-            {teamSize > 1 && onEditTeam && (
-              <button
-                onClick={onEditTeam}
-                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                title="Edit team"
+        <div className="flex items-center gap-1">
+          {/* Claim button for guest captain */}
+          {isCaptainGuest &&
+            canClaimSlot &&
+            !isCurrentUserInTeam &&
+            onClaimSlot && (
+              <Button
+                variant="secondary"
+                size="small"
+                onClick={() => onClaimSlot(0, captain)}
               >
-                <Edit className="w-4 h-4" />
-              </button>
+                Claim
+              </Button>
             )}
-            {onLeaveTeam && (
-              <button
-                onClick={onLeaveTeam}
-                className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-                title="Leave event"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        )}
+
+          {/* Actions for captain */}
+          {isCurrentUserCaptain && (
+            <>
+              {teamSize > 1 && onEditTeam && (
+                <button
+                  onClick={onEditTeam}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                  title="Edit team"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+              )}
+              {onLeaveTeam && (
+                <button
+                  onClick={onLeaveTeam}
+                  className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
+                  title="Leave event"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Team members (only shown for team size > 1, skip captain at index 0) */}
       {teamSize > 1 && (
-        <div className="space-y-2">
+        <div className="space-y-0.5">
           {registration.members.slice(1).map((member, index) => (
-            <div
-              key={index + 1}
-              className="flex items-center justify-between py-2 border-t border-slate-100 dark:border-slate-800"
-            >
-              <div className="flex items-center gap-3">
+            <div key={index + 1} className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
                 {/* Member icon/avatar */}
                 {member.type === "user" ? (
                   member.photoUrl ? (
@@ -107,7 +134,7 @@ export function RegistrationCard({
                     />
                   ) : (
                     <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
-                      <User className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                      <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                     </div>
                   )
                 ) : member.type === "guest" ? (
@@ -120,25 +147,20 @@ export function RegistrationCard({
                   </div>
                 )}
 
-                {/* Member info */}
-                <div>
-                  <p
-                    className={`text-sm ${member.type === "open" ? "text-primary-600 dark:text-primary-400" : "text-slate-900 dark:text-slate-100"}`}
-                  >
-                    {member.type === "user" && member.displayName}
-                    {member.type === "guest" && (
-                      <span className="italic">
-                        {member.displayName || "Guest"}
-                      </span>
-                    )}
-                    {member.type === "open" && "Looking for +1"}
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {member.type === "user" && "Player"}
-                    {member.type === "guest" && "Guest"}
-                    {member.type === "open" && "Open spot"}
-                  </p>
-                </div>
+                {/* Member name only - no secondary text */}
+                <span
+                  className={`text-sm ${
+                    member.type === "open"
+                      ? "text-primary-600 dark:text-primary-400"
+                      : member.type === "guest"
+                        ? "italic text-slate-500 dark:text-slate-400"
+                        : "text-slate-900 dark:text-slate-100"
+                  }`}
+                >
+                  {member.type === "user" && member.displayName}
+                  {member.type === "guest" && (member.displayName || "Guest")}
+                  {member.type === "open" && "Open"}
+                </span>
               </div>
 
               {/* Claim button for open/guest slots */}
@@ -156,29 +178,6 @@ export function RegistrationCard({
                 )}
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Single player display (team size = 1) */}
-      {teamSize === 1 && (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {captain?.type === "user" && (
-              <span className="text-xs text-emerald-600 dark:text-emerald-400">
-                ✓ Confirmed
-              </span>
-            )}
-          </div>
-          {isCurrentUserCaptain && onLeaveTeam && (
-            <Button
-              variant="ghost"
-              size="small"
-              onClick={onLeaveTeam}
-              className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
-            >
-              Leave
-            </Button>
-          )}
         </div>
       )}
     </Card>

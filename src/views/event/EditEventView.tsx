@@ -1,56 +1,65 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { PageLayout } from '@/components/layout/PageLayout';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Card } from '@/components/ui/Card';
-import { LocationInput } from '@/components/ui/LocationInput';
-import { Spinner } from '@/components/ui/Spinner';
-import { ROUTES, getEventRoute } from '@/config/routes';
-import { eventService } from '@/services/eventService';
-import { useAuth } from '@/hooks/useAuth';
-import { useEvent } from '@/hooks/useEvent';
-import type { EventLocation, EventVisibility, EventJoinType, UpdateEventData } from '@/types/event.types';
-import { format } from 'date-fns';
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { PageLayout } from "@/components/layout/PageLayout";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Card } from "@/components/ui/Card";
+import { LocationInput } from "@/components/ui/LocationInput";
+import { Spinner } from "@/components/ui/Spinner";
+import { ROUTES, getEventRoute } from "@/config/routes";
+import { eventService } from "@/services/eventService";
+import { useAuth } from "@/hooks/useAuth";
+import { useEvent } from "@/hooks/useEvent";
+import type {
+  EventLocation,
+  EventVisibility,
+  EventJoinType,
+  UpdateEventData,
+} from "@/types/event.types";
+import { format } from "date-fns";
 
 export function EditEventView() {
   const { eventCode } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { event, isLoading: isLoadingEvent, error: loadError } = useEvent(
-    eventCode, 
-    user?.uid, 
-    user?.displayName || undefined, 
-    user?.photoURL
+  const {
+    event,
+    isLoading: isLoadingEvent,
+    error: loadError,
+  } = useEvent(
+    eventCode,
+    user?.uid,
+    user?.displayName || undefined,
+    user?.photoURL,
   );
-  
+
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
-  
+
   // Step 1: Basic Info
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [date, setDate] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [date, setDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [teamSize, setTeamSize] = useState(1);
-  const [maxTeams, setMaxTeams] = useState('8');
-  
+  const [maxTeams, setMaxTeams] = useState("8");
+
   // Step 2: Location
   const [location, setLocation] = useState<EventLocation | null>(null);
-  
+
   // Step 3: Rules
-  const [visibility, setVisibility] = useState<EventVisibility>('public');
-  const [joinType, setJoinType] = useState<EventJoinType>('open');
+  const [visibility, setVisibility] = useState<EventVisibility>("public");
+  const [joinType, setJoinType] = useState<EventJoinType>("open");
 
   // Calculate total capacity
-  const totalCapacity = teamSize * parseInt(maxTeams || '0', 10);
+  const totalCapacity = teamSize * parseInt(maxTeams || "0", 10);
 
   // Get team size label for summary
   const getTeamSizeLabel = (size: number) => {
-    if (size === 1) return '1 (individual)';
+    if (size === 1) return "1 (individual)";
     return `${size} players per team`;
   };
 
@@ -58,10 +67,10 @@ export function EditEventView() {
   useEffect(() => {
     if (event && !initialized) {
       setName(event.name);
-      setDescription(event.description || '');
-      setDate(format(event.date, 'yyyy-MM-dd'));
-      setStartTime(format(event.date, 'HH:mm'));
-      setEndTime(format(event.endTime, 'HH:mm'));
+      setDescription(event.description || "");
+      setDate(format(event.date, "yyyy-MM-dd"));
+      setStartTime(format(event.date, "HH:mm"));
+      setEndTime(format(event.endTime, "HH:mm"));
       setTeamSize(event.teamSize);
       setMaxTeams(event.maxTeams.toString());
       setLocation({
@@ -78,21 +87,24 @@ export function EditEventView() {
   }, [event, initialized]);
 
   // Check if user can edit
-  const canEdit = user && event && (event.ownerId === user.uid || event.adminIds?.includes(user.uid));
+  const canEdit =
+    user &&
+    event &&
+    (event.ownerId === user.uid || event.adminIds?.includes(user.uid));
 
   const handleSubmit = async () => {
     if (!user || !event) {
-      setError('You must be logged in to edit an event');
+      setError("You must be logged in to edit an event");
       return;
     }
 
     if (!location) {
-      setError('Please select a location');
+      setError("Please select a location");
       return;
     }
 
     if (!canEdit) {
-      setError('You do not have permission to edit this event');
+      setError("You do not have permission to edit this event");
       return;
     }
 
@@ -121,16 +133,21 @@ export function EditEventView() {
       };
 
       await eventService.update(event.id, updateData);
-      navigate(getEventRoute(event.eventCode!));
+      navigate(getEventRoute(event.eventCode!), { replace: true });
     } catch (err) {
-      console.error('Failed to update event:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update event. Please try again.');
+      console.error("Failed to update event:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to update event. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const canProceedStep1 = name && date && startTime && endTime && parseInt(maxTeams, 10) > 0;
+  const canProceedStep1 =
+    name && date && startTime && endTime && parseInt(maxTeams, 10) > 0;
   const canProceedStep2 = location !== null;
 
   // Loading state
@@ -172,14 +189,16 @@ export function EditEventView() {
           <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
             You don't have permission to edit this event.
           </p>
-          <Button onClick={() => navigate(getEventRoute(event.eventCode!))}>Back to Event</Button>
+          <Button onClick={() => navigate(getEventRoute(event.eventCode!))}>
+            Back to Event
+          </Button>
         </div>
       </PageLayout>
     );
   }
 
   // Event is not active
-  if (event.status !== 'active') {
+  if (event.status !== "active") {
     return (
       <PageLayout title="Edit Event" showBack showBottomNav={false}>
         <div className="text-center py-12">
@@ -189,7 +208,9 @@ export function EditEventView() {
           <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
             This event has been {event.status} and cannot be edited.
           </p>
-          <Button onClick={() => navigate(getEventRoute(event.eventCode!))}>Back to Event</Button>
+          <Button onClick={() => navigate(getEventRoute(event.eventCode!))}>
+            Back to Event
+          </Button>
         </div>
       </PageLayout>
     );
@@ -205,10 +226,10 @@ export function EditEventView() {
               key={s}
               className={`w-2 h-2 rounded-full transition-colors ${
                 s === step
-                  ? 'bg-primary-600 dark:bg-primary-400'
+                  ? "bg-primary-600 dark:bg-primary-400"
                   : s < step
-                  ? 'bg-primary-300 dark:bg-primary-700'
-                  : 'bg-slate-200 dark:bg-slate-700'
+                    ? "bg-primary-300 dark:bg-primary-700"
+                    : "bg-slate-200 dark:bg-slate-700"
               }`}
             />
           ))}
@@ -247,7 +268,9 @@ export function EditEventView() {
                   maxLength={500}
                   className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-primary-600 dark:focus:border-primary-400"
                 />
-                <p className="text-xs text-slate-500 mt-1">{description.length}/500</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {description.length}/500
+                </p>
               </div>
               <Input
                 label="Date"
@@ -286,8 +309,8 @@ export function EditEventView() {
                       onClick={() => setTeamSize(size)}
                       className={`flex-1 h-11 rounded-lg font-medium text-sm transition-colors ${
                         teamSize === size
-                          ? 'bg-primary-600 text-white dark:bg-primary-500 dark:text-slate-950'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                          ? "bg-primary-600 text-white dark:bg-primary-500 dark:text-slate-950"
+                          : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                       }`}
                     >
                       {size}
@@ -295,7 +318,9 @@ export function EditEventView() {
                   ))}
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">
-                  {teamSize === 1 ? 'Individual registration' : `${teamSize} players register together`}
+                  {teamSize === 1
+                    ? "Individual registration"
+                    : `${teamSize} players register together`}
                 </p>
               </div>
 
@@ -312,13 +337,18 @@ export function EditEventView() {
                 />
                 {totalCapacity > 0 && (
                   <p className="text-xs text-primary-600 dark:text-primary-400 mt-1.5 font-medium">
-                    {totalCapacity} player{totalCapacity !== 1 ? 's' : ''} total
-                    {teamSize > 1 && ` (${maxTeams} team${parseInt(maxTeams, 10) !== 1 ? 's' : ''} × ${teamSize})`}
+                    {totalCapacity} player{totalCapacity !== 1 ? "s" : ""} total
+                    {teamSize > 1 &&
+                      ` (${maxTeams} team${parseInt(maxTeams, 10) !== 1 ? "s" : ""} × ${teamSize})`}
                   </p>
                 )}
               </div>
 
-              <Button onClick={() => setStep(2)} className="w-full" disabled={!canProceedStep1}>
+              <Button
+                onClick={() => setStep(2)}
+                className="w-full"
+                disabled={!canProceedStep1}
+              >
                 Next: Location
               </Button>
             </div>
@@ -338,26 +368,33 @@ export function EditEventView() {
                 label="Search for a venue"
                 required
               />
-              
+
               {location && (
                 <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg space-y-2">
                   <div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Venue</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Venue
+                    </p>
                     <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
                       {location.venueName}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Address</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Address
+                    </p>
                     <p className="text-sm text-slate-700 dark:text-slate-300">
                       {location.formattedAddress}
                     </p>
                   </div>
                   {location.latitude !== 0 && (
                     <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Coordinates</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Coordinates
+                      </p>
                       <p className="text-xs text-slate-600 dark:text-slate-400">
-                        {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                        {location.latitude.toFixed(6)},{" "}
+                        {location.longitude.toFixed(6)}
                       </p>
                     </div>
                   )}
@@ -365,10 +402,18 @@ export function EditEventView() {
               )}
 
               <div className="flex gap-3">
-                <Button variant="secondary" onClick={() => setStep(1)} className="flex-1">
+                <Button
+                  variant="secondary"
+                  onClick={() => setStep(1)}
+                  className="flex-1"
+                >
                   Back
                 </Button>
-                <Button onClick={() => setStep(3)} className="flex-1" disabled={!canProceedStep2}>
+                <Button
+                  onClick={() => setStep(3)}
+                  className="flex-1"
+                  disabled={!canProceedStep2}
+                >
                   Next: Rules
                 </Button>
               </div>
@@ -389,7 +434,9 @@ export function EditEventView() {
                 </label>
                 <select
                   value={visibility}
-                  onChange={(e) => setVisibility(e.target.value as EventVisibility)}
+                  onChange={(e) =>
+                    setVisibility(e.target.value as EventVisibility)
+                  }
                   className="w-full h-11 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:border-primary-600 dark:focus:border-primary-400"
                 >
                   <option value="public">Public - Anyone can find</option>
@@ -407,18 +454,24 @@ export function EditEventView() {
                   onChange={(e) => setJoinType(e.target.value as EventJoinType)}
                   className="w-full h-11 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:border-primary-600 dark:focus:border-primary-400"
                 >
-                  <option value="open">Open - Anyone who can see can join</option>
+                  <option value="open">
+                    Open - Anyone who can see can join
+                  </option>
                   <option value="invite_only">Invite Only</option>
                 </select>
               </div>
 
               <div className="flex gap-3">
-                <Button variant="secondary" onClick={() => setStep(2)} className="flex-1">
+                <Button
+                  variant="secondary"
+                  onClick={() => setStep(2)}
+                  className="flex-1"
+                >
                   Back
                 </Button>
-                <Button 
-                  onClick={handleSubmit} 
-                  loading={loading} 
+                <Button
+                  onClick={handleSubmit}
+                  loading={loading}
                   className="flex-1"
                 >
                   Save Changes
@@ -436,8 +489,12 @@ export function EditEventView() {
             </h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Event</span>
-                <span className="text-slate-900 dark:text-slate-100 font-medium">{name}</span>
+                <span className="text-slate-500 dark:text-slate-400">
+                  Event
+                </span>
+                <span className="text-slate-900 dark:text-slate-100 font-medium">
+                  {name}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Date</span>
@@ -452,19 +509,25 @@ export function EditEventView() {
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Team Size</span>
+                <span className="text-slate-500 dark:text-slate-400">
+                  Team Size
+                </span>
                 <span className="text-slate-900 dark:text-slate-100">
                   {getTeamSizeLabel(teamSize)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Capacity</span>
+                <span className="text-slate-500 dark:text-slate-400">
+                  Capacity
+                </span>
                 <span className="text-slate-900 dark:text-slate-100">
-                  {totalCapacity} player{totalCapacity !== 1 ? 's' : ''}
+                  {totalCapacity} player{totalCapacity !== 1 ? "s" : ""}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Venue</span>
+                <span className="text-slate-500 dark:text-slate-400">
+                  Venue
+                </span>
                 <span className="text-slate-900 dark:text-slate-100 text-right max-w-[60%] truncate">
                   {location?.venueName}
                 </span>

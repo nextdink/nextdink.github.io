@@ -24,13 +24,23 @@ export function ClaimSlotModal({
 }: ClaimSlotModalProps) {
   const isOpenSlot = slot.type === "open";
   const isGuestSlot = slot.type === "guest";
+  const isCaptainSlot = slotIndex === 0;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Claim Spot?">
       <div className="space-y-4">
         {/* Description */}
         <div className="text-sm text-slate-600 dark:text-slate-400">
-          {isOpenSlot && (
+          {isCaptainSlot && isGuestSlot && (
+            <p>
+              Claim this registration, replacing{" "}
+              <span className="font-medium text-slate-900 dark:text-slate-100">
+                {slot.displayName}
+              </span>
+              . You will become the team leader.
+            </p>
+          )}
+          {!isCaptainSlot && isOpenSlot && (
             <p>
               Claim the open spot in{" "}
               <span className="font-medium text-slate-900 dark:text-slate-100">
@@ -39,7 +49,7 @@ export function ClaimSlotModal({
               registration.
             </p>
           )}
-          {isGuestSlot && (
+          {!isCaptainSlot && isGuestSlot && (
             <p>
               Claim this spot in{" "}
               <span className="font-medium text-slate-900 dark:text-slate-100">
@@ -80,7 +90,9 @@ export function ClaimSlotModal({
 
         {/* Info */}
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          You'll be registered with {captainName} for this event.
+          {isCaptainSlot
+            ? "You'll become the team leader for this registration."
+            : `You'll be registered with ${captainName} for this event.`}
         </p>
 
         {/* Actions */}

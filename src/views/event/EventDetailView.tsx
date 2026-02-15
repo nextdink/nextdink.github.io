@@ -13,6 +13,7 @@ import {
   UserRoundPlus,
   Trash2,
   Copy,
+  Lock,
 } from "lucide-react";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { DropdownMenu } from "@/components/ui/DropdownMenu";
@@ -33,6 +34,7 @@ import {
   getTotalCapacity,
   getClaimableSpotsCount,
   isTeamCaptain,
+  isUserInEvent,
 } from "@/types/event.types";
 import type { TeamMember } from "@/types/event.types";
 import { ROUTES, getEditEventRoute } from "@/config/routes";
@@ -93,7 +95,7 @@ export function EventDetailView() {
   // Loading state
   if (isLoading) {
     return (
-      <PageLayout showBack>
+      <PageLayout showBack backTo={ROUTES.HOME}>
         <div className="flex items-center justify-center py-12">
           <Spinner />
         </div>
@@ -104,11 +106,74 @@ export function EventDetailView() {
   // Error state
   if (error || !event) {
     return (
-      <PageLayout showBack>
+      <PageLayout showBack backTo={ROUTES.HOME}>
         <EmptyState
           icon={XCircle}
           title="Event not found"
           description="This event may have been canceled or doesn't exist."
+          action={{
+            label: "Go Home",
+            onClick: () => navigate(ROUTES.HOME),
+          }}
+        />
+      </PageLayout>
+    );
+  }
+
+  // Access control for private events
+  const canViewEvent = (): boolean => {
+    // Public events - anyone can view
+    if (event.visibility === "public") return true;
+
+    // Code-based events - anyone with the code can view
+    if (event.visibility === "code") return true;
+
+    // Private events - require authentication and authorization
+    if (event.visibility === "private") {
+      if (!user) return false; // Not logged in
+
+      // Check if user is owner, admin, invited, or registered
+      const isOwner = user.uid === event.ownerId;
+      const isAdmin = event.adminIds.includes(user.uid);
+      const isInvited = event.invitedUserIds.includes(user.uid);
+      const isRegistered = isUserInEvent(event, user.uid);
+
+      return isOwner || isAdmin || isInvited || isRegistered;
+    }
+
+    return false;
+  };
+
+  // Handle private event access
+  if (!canViewEvent()) {
+    // If not logged in, redirect to login
+    if (!user) {
+      const returnUrl = encodeURIComponent(
+        window.location.pathname + window.location.search,
+      );
+      // Use useEffect to avoid render-time navigation
+      return (
+        <PageLayout showBack backTo={ROUTES.HOME}>
+          <EmptyState
+            icon={Lock}
+            title="Private Event"
+            description="You need to sign in to view this event."
+            action={{
+              label: "Sign In",
+              onClick: () => navigate(`${ROUTES.LOGIN}?redirect=${returnUrl}`),
+            }}
+          />
+        </PageLayout>
+      );
+    }
+
+    // User is logged in but not authorized
+    return (
+      <PageLayout showBack backTo={ROUTES.HOME}>
+        <EmptyState
+          icon={Lock}
+          title="Access Denied"
+          description="This is a private event. You need an invitation from the organizer to view it."
           action={{
             label: "Go Home",
             onClick: () => navigate(ROUTES.HOME),
@@ -308,7 +373,7 @@ export function EventDetailView() {
     : [];
 
   return (
-    <PageLayout showBack showBottomNav={false}>
+    <PageLayout showBack backTo={ROUTES.HOME} showBottomNav={false}>
       <div className="space-y-6">
         {/* Header */}
         <div>

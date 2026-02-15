@@ -1,30 +1,30 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { PageLayout } from '@/components/layout/PageLayout';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Card } from '@/components/ui/Card';
-import { listService } from '@/services/listService';
-import { useAuth } from '@/hooks/useAuth';
-import { getListRoute } from '@/config/routes';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { PageLayout } from "@/components/layout/PageLayout";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Card } from "@/components/ui/Card";
+import { listService } from "@/services/listService";
+import { useAuth } from "@/hooks/useAuth";
+import { getListRoute } from "@/config/routes";
 
 export function CreateListView() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [name, setName] = useState('');
+  const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!user) {
-      setError('You must be logged in to create a list');
+      setError("You must be logged in to create a list");
       return;
     }
 
     if (!name.trim()) {
-      setError('Please enter a list name');
+      setError("Please enter a list name");
       return;
     }
 
@@ -33,10 +33,14 @@ export function CreateListView() {
 
     try {
       const listId = await listService.create({ name: name.trim() }, user.uid);
-      navigate(getListRoute(listId));
+      navigate(getListRoute(listId), { replace: true });
     } catch (err) {
-      console.error('Failed to create list:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create list. Please try again.');
+      console.error("Failed to create list:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to create list. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -64,8 +68,8 @@ export function CreateListView() {
             />
 
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Lists help you organize players for quick event invitations. 
-              Only you and list admins can see the list.
+              Lists help you organize players for quick event invitations. Only
+              you and list admins can see the list.
             </p>
 
             <Button type="submit" loading={loading} className="w-full">

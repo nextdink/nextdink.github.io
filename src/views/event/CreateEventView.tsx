@@ -1,14 +1,19 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { PageLayout } from '@/components/layout/PageLayout';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Card } from '@/components/ui/Card';
-import { LocationInput } from '@/components/ui/LocationInput';
-import { getEventRoute } from '@/config/routes';
-import { eventService } from '@/services/eventService';
-import { useAuth } from '@/hooks/useAuth';
-import type { EventLocation, EventVisibility, EventJoinType, CreateEventData } from '@/types/event.types';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { PageLayout } from "@/components/layout/PageLayout";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Card } from "@/components/ui/Card";
+import { LocationInput } from "@/components/ui/LocationInput";
+import { getEventRoute } from "@/config/routes";
+import { eventService } from "@/services/eventService";
+import { useAuth } from "@/hooks/useAuth";
+import type {
+  EventLocation,
+  EventVisibility,
+  EventJoinType,
+  CreateEventData,
+} from "@/types/event.types";
 
 export function CreateEventView() {
   const navigate = useNavigate();
@@ -16,40 +21,40 @@ export function CreateEventView() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Step 1: Basic Info
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [date, setDate] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [date, setDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [teamSize, setTeamSize] = useState(1); // 1-4, default 1 for singles
-  const [maxTeams, setMaxTeams] = useState('8');
-  
+  const [maxTeams, setMaxTeams] = useState("8");
+
   // Step 2: Location
   const [location, setLocation] = useState<EventLocation | null>(null);
-  
+
   // Step 3: Rules
-  const [visibility, setVisibility] = useState<EventVisibility>('public');
-  const [joinType, setJoinType] = useState<EventJoinType>('open');
+  const [visibility, setVisibility] = useState<EventVisibility>("public");
+  const [joinType, setJoinType] = useState<EventJoinType>("open");
 
   // Calculate total capacity
-  const totalCapacity = teamSize * parseInt(maxTeams || '0', 10);
+  const totalCapacity = teamSize * parseInt(maxTeams || "0", 10);
 
   // Get team size label for summary
   const getTeamSizeLabel = (size: number) => {
-    if (size === 1) return '1 (individual)';
+    if (size === 1) return "1 (individual)";
     return `${size} players per team`;
   };
 
   const handleSubmit = async () => {
     if (!user) {
-      setError('You must be logged in to create an event');
+      setError("You must be logged in to create an event");
       return;
     }
 
     if (!location) {
-      setError('Please select a location');
+      setError("Please select a location");
       return;
     }
 
@@ -78,16 +83,21 @@ export function CreateEventView() {
       };
 
       const eventCode = await eventService.create(eventData, user.uid);
-      navigate(getEventRoute(eventCode));
+      navigate(getEventRoute(eventCode), { replace: true });
     } catch (err) {
-      console.error('Failed to create event:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create event. Please try again.');
+      console.error("Failed to create event:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to create event. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const canProceedStep1 = name && date && startTime && endTime && parseInt(maxTeams, 10) > 0;
+  const canProceedStep1 =
+    name && date && startTime && endTime && parseInt(maxTeams, 10) > 0;
   const canProceedStep2 = location !== null;
   const canProceedStep3 = true;
 
@@ -101,10 +111,10 @@ export function CreateEventView() {
               key={s}
               className={`w-2 h-2 rounded-full transition-colors ${
                 s === step
-                  ? 'bg-primary-600 dark:bg-primary-400'
+                  ? "bg-primary-600 dark:bg-primary-400"
                   : s < step
-                  ? 'bg-primary-300 dark:bg-primary-700'
-                  : 'bg-slate-200 dark:bg-slate-700'
+                    ? "bg-primary-300 dark:bg-primary-700"
+                    : "bg-slate-200 dark:bg-slate-700"
               }`}
             />
           ))}
@@ -143,7 +153,9 @@ export function CreateEventView() {
                   maxLength={500}
                   className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-primary-600 dark:focus:border-primary-400"
                 />
-                <p className="text-xs text-slate-500 mt-1">{description.length}/500</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {description.length}/500
+                </p>
               </div>
               <Input
                 label="Date"
@@ -182,8 +194,8 @@ export function CreateEventView() {
                       onClick={() => setTeamSize(size)}
                       className={`flex-1 h-11 rounded-lg font-medium text-sm transition-colors ${
                         teamSize === size
-                          ? 'bg-primary-600 text-white dark:bg-primary-500 dark:text-slate-950'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                          ? "bg-primary-600 text-white dark:bg-primary-500 dark:text-slate-950"
+                          : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                       }`}
                     >
                       {size}
@@ -191,7 +203,9 @@ export function CreateEventView() {
                   ))}
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">
-                  {teamSize === 1 ? 'Individual registration' : `${teamSize} players register together`}
+                  {teamSize === 1
+                    ? "Individual registration"
+                    : `${teamSize} players register together`}
                 </p>
               </div>
 
@@ -208,13 +222,18 @@ export function CreateEventView() {
                 />
                 {totalCapacity > 0 && (
                   <p className="text-xs text-primary-600 dark:text-primary-400 mt-1.5 font-medium">
-                    {totalCapacity} player{totalCapacity !== 1 ? 's' : ''} total
-                    {teamSize > 1 && ` (${maxTeams} team${parseInt(maxTeams, 10) !== 1 ? 's' : ''} × ${teamSize})`}
+                    {totalCapacity} player{totalCapacity !== 1 ? "s" : ""} total
+                    {teamSize > 1 &&
+                      ` (${maxTeams} team${parseInt(maxTeams, 10) !== 1 ? "s" : ""} × ${teamSize})`}
                   </p>
                 )}
               </div>
 
-              <Button onClick={() => setStep(2)} className="w-full" disabled={!canProceedStep1}>
+              <Button
+                onClick={() => setStep(2)}
+                className="w-full"
+                disabled={!canProceedStep1}
+              >
                 Next: Location
               </Button>
             </div>
@@ -234,26 +253,33 @@ export function CreateEventView() {
                 label="Search for a venue"
                 required
               />
-              
+
               {location && (
                 <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg space-y-2">
                   <div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Venue</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Venue
+                    </p>
                     <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
                       {location.venueName}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Address</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Address
+                    </p>
                     <p className="text-sm text-slate-700 dark:text-slate-300">
                       {location.formattedAddress}
                     </p>
                   </div>
                   {location.latitude !== 0 && (
                     <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Coordinates</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Coordinates
+                      </p>
                       <p className="text-xs text-slate-600 dark:text-slate-400">
-                        {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                        {location.latitude.toFixed(6)},{" "}
+                        {location.longitude.toFixed(6)}
                       </p>
                     </div>
                   )}
@@ -261,10 +287,18 @@ export function CreateEventView() {
               )}
 
               <div className="flex gap-3">
-                <Button variant="secondary" onClick={() => setStep(1)} className="flex-1">
+                <Button
+                  variant="secondary"
+                  onClick={() => setStep(1)}
+                  className="flex-1"
+                >
                   Back
                 </Button>
-                <Button onClick={() => setStep(3)} className="flex-1" disabled={!canProceedStep2}>
+                <Button
+                  onClick={() => setStep(3)}
+                  className="flex-1"
+                  disabled={!canProceedStep2}
+                >
                   Next: Rules
                 </Button>
               </div>
@@ -285,7 +319,9 @@ export function CreateEventView() {
                 </label>
                 <select
                   value={visibility}
-                  onChange={(e) => setVisibility(e.target.value as EventVisibility)}
+                  onChange={(e) =>
+                    setVisibility(e.target.value as EventVisibility)
+                  }
                   className="w-full h-11 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:border-primary-600 dark:focus:border-primary-400"
                 >
                   <option value="public">Public - Anyone can find</option>
@@ -303,19 +339,25 @@ export function CreateEventView() {
                   onChange={(e) => setJoinType(e.target.value as EventJoinType)}
                   className="w-full h-11 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:border-primary-600 dark:focus:border-primary-400"
                 >
-                  <option value="open">Open - Anyone who can see can join</option>
+                  <option value="open">
+                    Open - Anyone who can see can join
+                  </option>
                   <option value="invite_only">Invite Only</option>
                 </select>
               </div>
 
               <div className="flex gap-3">
-                <Button variant="secondary" onClick={() => setStep(2)} className="flex-1">
+                <Button
+                  variant="secondary"
+                  onClick={() => setStep(2)}
+                  className="flex-1"
+                >
                   Back
                 </Button>
-                <Button 
-                  onClick={handleSubmit} 
-                  loading={loading} 
-                  className="flex-1" 
+                <Button
+                  onClick={handleSubmit}
+                  loading={loading}
+                  className="flex-1"
                   disabled={!canProceedStep3}
                 >
                   Create Event
@@ -333,8 +375,12 @@ export function CreateEventView() {
             </h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Event</span>
-                <span className="text-slate-900 dark:text-slate-100 font-medium">{name}</span>
+                <span className="text-slate-500 dark:text-slate-400">
+                  Event
+                </span>
+                <span className="text-slate-900 dark:text-slate-100 font-medium">
+                  {name}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Date</span>
@@ -349,19 +395,25 @@ export function CreateEventView() {
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Team Size</span>
+                <span className="text-slate-500 dark:text-slate-400">
+                  Team Size
+                </span>
                 <span className="text-slate-900 dark:text-slate-100">
                   {getTeamSizeLabel(teamSize)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Capacity</span>
+                <span className="text-slate-500 dark:text-slate-400">
+                  Capacity
+                </span>
                 <span className="text-slate-900 dark:text-slate-100">
-                  {totalCapacity} player{totalCapacity !== 1 ? 's' : ''}
+                  {totalCapacity} player{totalCapacity !== 1 ? "s" : ""}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Venue</span>
+                <span className="text-slate-500 dark:text-slate-400">
+                  Venue
+                </span>
                 <span className="text-slate-900 dark:text-slate-100 text-right max-w-[60%] truncate">
                   {location?.venueName}
                 </span>

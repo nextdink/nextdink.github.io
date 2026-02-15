@@ -521,6 +521,7 @@ export const eventService = {
 
   /**
    * Claim an open or guest slot in an existing team
+   * If claiming the captain position (index 0), also transfers team ownership
    */
   async claimSlot(
     eventId: string,
@@ -584,7 +585,14 @@ export const eventService = {
         photoUrl: userPhotoUrl,
       };
 
-      const updatedTeam = { ...team, members: updatedMembers };
+      // If claiming the captain position (index 0), transfer team ownership
+      const updatedTeam = {
+        ...team,
+        members: updatedMembers,
+        // Transfer ownership if claiming captain slot
+        ...(memberIndex === 0 && { createdBy: userId }),
+      };
+
       const updatedRegistrations = [...registrations];
       updatedRegistrations[teamIndex] = updatedTeam;
 
