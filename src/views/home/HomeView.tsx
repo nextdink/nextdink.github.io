@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Plus, Calendar, Search, Mail, X } from "lucide-react";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Spinner } from "@/components/ui/Spinner";
 import { Input } from "@/components/ui/Input";
@@ -300,7 +299,7 @@ function InvitesTab({
           </h2>
           <div className="space-y-3">
             {invitedEvents.map((eventWithStatus) => (
-              <InviteCard
+              <InviteEventCard
                 key={eventWithStatus.event.id}
                 eventWithStatus={eventWithStatus}
                 onAccept={() => onAccept(eventWithStatus)}
@@ -333,14 +332,18 @@ function InvitesTab({
   );
 }
 
-// Invite Card with Accept/Decline buttons
-interface InviteCardProps {
+// Invite Event Card - uses EventCard with actions prop
+interface InviteEventCardProps {
   eventWithStatus: EventWithStatus;
   onAccept: () => void;
   onDecline: () => void;
 }
 
-function InviteCard({ eventWithStatus, onAccept, onDecline }: InviteCardProps) {
+function InviteEventCard({
+  eventWithStatus,
+  onAccept,
+  onDecline,
+}: InviteEventCardProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleDecline = async (e: React.MouseEvent) => {
@@ -359,24 +362,18 @@ function InviteCard({ eventWithStatus, onAccept, onDecline }: InviteCardProps) {
   };
 
   return (
-    <Card className="border-l-4 border-l-blue-500">
-      <div className="space-y-3">
-        {/* Event Info */}
-        <EventCard
-          event={eventWithStatus.event}
-          userStatus="invited"
-          className="border-0 p-0 shadow-none hover:border-0"
-        />
-
-        {/* Action Buttons */}
-        <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+    <EventCard
+      event={eventWithStatus.event}
+      userStatus="invited"
+      actions={
+        <div className="flex gap-2">
           <Button
             onClick={handleAccept}
             variant="primary"
             size="small"
             className="flex-1"
           >
-            Accept
+            View Event
           </Button>
           <Button
             onClick={handleDecline}
@@ -389,7 +386,7 @@ function InviteCard({ eventWithStatus, onAccept, onDecline }: InviteCardProps) {
             Decline
           </Button>
         </div>
-      </div>
-    </Card>
+      }
+    />
   );
 }

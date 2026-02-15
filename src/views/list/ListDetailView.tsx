@@ -241,6 +241,7 @@ export function ListDetailView() {
                       userId={member.id}
                       displayName={member.displayName}
                       alt={member.displayName}
+                      size="xsmall"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">

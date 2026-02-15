@@ -189,6 +189,35 @@ export function getClaimableSpotsCount(event: Event): number {
 }
 
 /**
+ * Count open slots ("looking for partner") in joined teams.
+ */
+export function getOpenSlotsCount(event: Event): number {
+  const joinedTeams = getJoinedTeams(event);
+  return joinedTeams.reduce(
+    (sum, team) => sum + team.members.filter((m) => m.type === "open").length,
+    0,
+  );
+}
+
+/**
+ * Get all joined members (users + guests, excluding open slots) from joined teams.
+ * Useful for displaying avatar stacks.
+ */
+export function getJoinedMembers(event: Event): TeamMember[] {
+  const joinedTeams = getJoinedTeams(event);
+  return joinedTeams
+    .flatMap((team) => team.members)
+    .filter((m) => m.type === "user" || m.type === "guest");
+}
+
+/**
+ * Count joined players (users + guests, excluding open slots) in joined teams.
+ */
+export function getJoinedPlayersCount(event: Event): number {
+  return getJoinedMembers(event).length;
+}
+
+/**
  * Check if a user is already registered in any team for an event.
  */
 export function isUserInEvent(event: Event, userId: string): boolean {

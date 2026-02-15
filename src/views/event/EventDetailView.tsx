@@ -23,6 +23,8 @@ import { Badge } from "@/components/ui/Badge";
 import { CapacityBar } from "@/components/ui/CapacityBar";
 import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Modal, ConfirmModal } from "@/components/ui/Modal";
+import { Input } from "@/components/ui/Input";
 import { RegistrationCard } from "@/components/common/RegistrationCard";
 import { TeamRegistrationModal } from "@/components/common/TeamRegistrationModal";
 import { ClaimSlotModal } from "@/components/common/ClaimSlotModal";
@@ -33,7 +35,6 @@ import { useEvent } from "@/hooks/useEvent";
 import {
   getTotalCapacity,
   getClaimableSpotsCount,
-  isTeamCaptain,
   isUserInEvent,
 } from "@/types/event.types";
 import type { TeamMember } from "@/types/event.types";
@@ -59,16 +60,20 @@ export function EventDetailView() {
     isLoadingDeclinedUsers,
     registerTeam,
     addGuestTeam,
-    leaveEvent,
     declineEvent,
+    leaveEvent,
     claimSlot,
     declineInvitation,
     deleteEvent,
+    removeTeamMember,
+    fillOpenSlotWithGuest,
     isRegistering,
     isAddingGuestTeam,
     isClaiming,
     isDeclining,
     isDecliningEvent,
+    isRemovingMember,
+    isFillingSlot,
   } = useEvent(
     eventCode,
     user?.uid,
@@ -81,6 +86,16 @@ export function EventDetailView() {
   const [showClaimModal, setShowClaimModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showAddGuestModal, setShowAddGuestModal] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState<{
+    teamId: string;
+    memberIndex: number;
+    memberName: string;
+  } | null>(null);
+  const [showAddGuestToSlotModal, setShowAddGuestToSlotModal] = useState<{
+    teamId: string;
+    memberIndex: number;
+  } | null>(null);
+  const [addGuestName, setAddGuestName] = useState("");
 
   // Tab for secondary lists (Invited / Waitlist / Declined)
   type SecondaryTab = "invited" | "waitlist" | "declined";
@@ -252,17 +267,6 @@ export function EventDetailView() {
     }
   };
 
-  // Leave handler (for RegistrationCard - just removes without declining)
-  const handleLeave = async () => {
-    if (confirm("Are you sure you want to leave this event?")) {
-      try {
-        await leaveEvent();
-      } catch (err) {
-        console.error("Failed to leave:", err);
-      }
-    }
-  };
-
   // Claim slot handler
   const handleClaimSlot = (
     teamId: string,
@@ -284,6 +288,64 @@ export function EventDetailView() {
     } catch (err) {
       console.error("Failed to claim slot:", err);
       throw err;
+    }
+  };
+
+  // Leave handler
+  const handleLeave = async () => {
+    if (confirm("Are you sure you want to leave this team?")) {
+      try {
+        await leaveEvent();
+      } catch (err) {
+        console.error("Failed to leave:", err);
+      }
+    }
+  };
+
+  // Admin: Remove member handler
+  const handleRemoveMember = (
+    teamId: string,
+    memberIndex: number,
+    member: { type: string; displayName?: string | null },
+  ) => {
+    const memberName =
+      member.displayName || (member.type === "guest" ? "Guest" : "Player");
+    setShowRemoveConfirm({ teamId, memberIndex, memberName });
+  };
+
+  // Admin: Confirm remove member
+  const handleConfirmRemoveMember = async () => {
+    if (!showRemoveConfirm) return;
+    try {
+      await removeTeamMember(
+        showRemoveConfirm.teamId,
+        showRemoveConfirm.memberIndex,
+      );
+      setShowRemoveConfirm(null);
+    } catch (err) {
+      console.error("Failed to remove member:", err);
+    }
+  };
+
+  // Admin: Fill open slot handler
+  const handleFillOpenSlot = (teamId: string, memberIndex: number) => {
+    setAddGuestName("");
+    setShowAddGuestToSlotModal({ teamId, memberIndex });
+  };
+
+  // Admin: Confirm fill open slot
+  const handleConfirmFillSlot = async () => {
+    if (!showAddGuestToSlotModal || !addGuestName.trim()) return;
+    try {
+      await fillOpenSlotWithGuest(
+        showAddGuestToSlotModal.teamId,
+        showAddGuestToSlotModal.memberIndex,
+        addGuestName.trim(),
+      );
+      setShowAddGuestToSlotModal(null);
+      setAddGuestName("");
+    } catch (err) {
+      console.error("Failed to add guest:", err);
     }
   };
 
@@ -541,26 +603,33 @@ export function EventDetailView() {
                   key={registration.id}
                   registration={registration}
                   teamSize={event.teamSize}
-                  isCurrentUserCaptain={
-                    user ? isTeamCaptain(registration, user.uid) : false
-                  }
                   isCurrentUserInTeam={registration.members.some(
                     (m) => m.type === "user" && m.userId === user?.uid,
                   )}
                   canClaimSlot={!!user && !isUserRegistered}
+                  canManage={canManage}
+                  currentUserId={user?.uid}
                   onClaimSlot={(memberIndex, slot) => {
-                    const captain = registration.members[0];
+                    const firstMember = registration.members[0];
                     handleClaimSlot(
                       registration.id,
                       memberIndex,
                       slot,
-                      captain?.displayName || "Unknown",
+                      firstMember?.displayName || "Unknown",
                     );
                   }}
-                  onLeaveTeam={
-                    user && isTeamCaptain(registration, user.uid)
+                  onLeave={
+                    registration.members.some(
+                      (m) => m.type === "user" && m.userId === user?.uid,
+                    )
                       ? handleLeave
                       : undefined
+                  }
+                  onRemoveMember={(memberIndex, member) =>
+                    handleRemoveMember(registration.id, memberIndex, member)
+                  }
+                  onFillOpenSlot={(memberIndex) =>
+                    handleFillOpenSlot(registration.id, memberIndex)
                   }
                 />
               ))}
@@ -710,18 +779,25 @@ export function EventDetailView() {
                     key={registration.id}
                     registration={registration}
                     teamSize={event.teamSize}
-                    isCurrentUserCaptain={
-                      user ? isTeamCaptain(registration, user.uid) : false
-                    }
                     isCurrentUserInTeam={registration.members.some(
                       (m) => m.type === "user" && m.userId === user?.uid,
                     )}
                     canClaimSlot={false}
+                    canManage={canManage}
+                    currentUserId={user?.uid}
                     waitlistPosition={index + 1}
-                    onLeaveTeam={
-                      user && isTeamCaptain(registration, user.uid)
+                    onLeave={
+                      registration.members.some(
+                        (m) => m.type === "user" && m.userId === user?.uid,
+                      )
                         ? handleLeave
                         : undefined
+                    }
+                    onRemoveMember={(memberIndex, member) =>
+                      handleRemoveMember(registration.id, memberIndex, member)
+                    }
+                    onFillOpenSlot={(memberIndex) =>
+                      handleFillOpenSlot(registration.id, memberIndex)
                     }
                   />
                 ))}
@@ -831,6 +907,58 @@ export function EventDetailView() {
         teamSize={event.teamSize}
         isLoading={isAddingGuestTeam}
       />
+
+      {/* Remove Member Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!showRemoveConfirm}
+        onClose={() => setShowRemoveConfirm(null)}
+        onConfirm={handleConfirmRemoveMember}
+        title="Remove Player"
+        message={`Are you sure you want to remove ${showRemoveConfirm?.memberName}? Their slot will become open.`}
+        confirmLabel="Remove"
+        variant="danger"
+        loading={isRemovingMember}
+      />
+
+      {/* Add Guest to Slot Modal */}
+      <Modal
+        isOpen={!!showAddGuestToSlotModal}
+        onClose={() => {
+          setShowAddGuestToSlotModal(null);
+          setAddGuestName("");
+        }}
+        title="Add Guest"
+      >
+        <div className="space-y-4">
+          <Input
+            label="Guest Name"
+            value={addGuestName}
+            onChange={(e) => setAddGuestName(e.target.value)}
+            placeholder="Enter guest name"
+            autoFocus
+          />
+          <div className="flex gap-3">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowAddGuestToSlotModal(null);
+                setAddGuestName("");
+              }}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmFillSlot}
+              loading={isFillingSlot}
+              disabled={!addGuestName.trim()}
+              className="flex-1"
+            >
+              Add Guest
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </PageLayout>
   );
 }

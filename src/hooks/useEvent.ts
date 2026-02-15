@@ -44,6 +44,16 @@ interface UseEventResult {
   ) => Promise<{ status: "joined" | "waitlisted" }>;
   declineInvitation: () => Promise<void>;
   deleteEvent: () => Promise<void>;
+  // Admin actions
+  removeTeamMember: (
+    teamId: string,
+    memberIndex: number,
+  ) => Promise<{ teamRemoved: boolean }>;
+  fillOpenSlotWithGuest: (
+    teamId: string,
+    memberIndex: number,
+    guestName: string,
+  ) => Promise<void>;
   isRegistering: boolean;
   isAddingGuestTeam: boolean;
   isLeaving: boolean;
@@ -51,6 +61,8 @@ interface UseEventResult {
   isClaiming: boolean;
   isDeclining: boolean;
   isDeleting: boolean;
+  isRemovingMember: boolean;
+  isFillingSlot: boolean;
 }
 
 export function useEvent(
@@ -69,6 +81,8 @@ export function useEvent(
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeclining, setIsDeclining] = useState(false);
   const [isDecliningEvent, setIsDecliningEvent] = useState(false);
+  const [isRemovingMember, setIsRemovingMember] = useState(false);
+  const [isFillingSlot, setIsFillingSlot] = useState(false);
   const [invitedUsers, setInvitedUsers] = useState<UserProfile[]>([]);
   const [isLoadingInvitedUsers, setIsLoadingInvitedUsers] = useState(false);
   const [declinedUsers, setDeclinedUsers] = useState<UserProfile[]>([]);
@@ -316,6 +330,52 @@ export function useEvent(
     }
   }, [event, userId, fetchEvent]);
 
+  // Remove a team member (admin/owner action)
+  const removeTeamMember = useCallback(
+    async (teamId: string, memberIndex: number) => {
+      if (!event) {
+        throw new Error("Event not loaded");
+      }
+
+      setIsRemovingMember(true);
+      try {
+        const result = await eventService.removeTeamMember(
+          event.id,
+          teamId,
+          memberIndex,
+        );
+        await fetchEvent(); // Refresh event data
+        return result;
+      } finally {
+        setIsRemovingMember(false);
+      }
+    },
+    [event, fetchEvent],
+  );
+
+  // Fill an open slot with a guest name (admin/owner action)
+  const fillOpenSlotWithGuest = useCallback(
+    async (teamId: string, memberIndex: number, guestName: string) => {
+      if (!event) {
+        throw new Error("Event not loaded");
+      }
+
+      setIsFillingSlot(true);
+      try {
+        await eventService.fillOpenSlotWithGuest(
+          event.id,
+          teamId,
+          memberIndex,
+          guestName,
+        );
+        await fetchEvent(); // Refresh event data
+      } finally {
+        setIsFillingSlot(false);
+      }
+    },
+    [event, fetchEvent],
+  );
+
   return {
     event,
     isLoading,
@@ -338,6 +398,8 @@ export function useEvent(
     claimSlot,
     declineInvitation,
     deleteEvent,
+    removeTeamMember,
+    fillOpenSlotWithGuest,
     isRegistering,
     isAddingGuestTeam,
     isLeaving,
@@ -345,5 +407,7 @@ export function useEvent(
     isClaiming,
     isDeclining,
     isDeleting,
+    isRemovingMember,
+    isFillingSlot,
   };
 }

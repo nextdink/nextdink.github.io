@@ -1,6 +1,6 @@
-import { generateAvatarSvg } from '@/utils/avatarUtils';
+import { generateAvatarSvg } from "@/utils/avatarUtils";
 
-type AvatarSize = 'small' | 'default' | 'large';
+type AvatarSize = "xsmall" | "small" | "default" | "large";
 
 interface AvatarProps {
   /** URL of the user's profile photo (from OAuth provider) */
@@ -20,30 +20,33 @@ interface AvatarProps {
 }
 
 const sizeStyles: Record<AvatarSize, string> = {
-  small: 'w-8 h-8',
-  default: 'w-10 h-10',
-  large: 'w-16 h-16',
+  xsmall: "w-6 h-6",
+  small: "w-8 h-8",
+  default: "w-10 h-10",
+  large: "w-16 h-16",
 };
 
 // SVG sizes for generating avatars at appropriate resolution
 const svgSizes: Record<AvatarSize, number> = {
+  xsmall: 24,
   small: 32,
   default: 40,
   large: 64,
 };
 
-export function Avatar({ 
-  src, 
-  photoUrl,
-  userId, 
+export function Avatar({
+  // src,
+  // photoUrl,
+  userId,
   displayName,
-  alt = 'User', 
-  size = 'default', 
-  className = '' 
+  alt = "User",
+  size = "default",
+  className = "",
 }: AvatarProps) {
   // Use src or photoUrl (photoUrl is an alias for src)
-  const imageUrl = src || photoUrl;
-  
+  // Comment out to only use generate photo for now
+  const imageUrl = null; //src || photoUrl;
+
   // If there's an OAuth photo URL, use it
   if (imageUrl) {
     return (
@@ -62,8 +65,12 @@ export function Avatar({
 
   // Generate deterministic avatar based on user ID with initials
   // Use a fallback ID if none provided (shouldn't happen in practice)
-  const effectiveUserId = userId || 'default-user';
-  const generatedSrc = generateAvatarSvg(effectiveUserId, displayName, svgSizes[size]);
+  const effectiveUserId = userId || "default-user";
+  const generatedSrc = generateAvatarSvg(
+    effectiveUserId,
+    displayName,
+    svgSizes[size],
+  );
 
   return (
     <img

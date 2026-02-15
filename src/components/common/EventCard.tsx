@@ -11,13 +11,14 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { Card } from "@/components/ui/Card";
-import { CapacityBar } from "@/components/ui/CapacityBar";
+import { AvatarStack } from "@/components/ui/AvatarStack";
 import { getEventRoute } from "@/config/routes";
 import type { Event } from "@/types/event.types";
 import {
-  getJoinedTeams,
   getTotalCapacity,
-  getClaimableSpotsCount,
+  getJoinedMembers,
+  getJoinedPlayersCount,
+  getOpenSlotsCount,
 } from "@/types/event.types";
 import type {
   UserEventStatus,
@@ -31,6 +32,7 @@ interface EventCardProps {
   waitlistPosition?: number;
   isDeclined?: boolean;
   className?: string;
+  actions?: React.ReactNode; // Custom action buttons (e.g., Accept/Decline for invites)
 }
 
 // Status badge component
@@ -105,26 +107,15 @@ export function EventCard({
   waitlistPosition,
   isDeclined = false,
   className = "",
+  actions,
 }: EventCardProps) {
   const navigate = useNavigate();
 
   // Calculate capacity from registrations
-  const joinedTeams = getJoinedTeams(event);
   const totalCapacity = getTotalCapacity(event);
-  const claimableSpots = getClaimableSpotsCount(event);
-
-  // For individual signup (teamSize=1), show player count
-  // For group signup, show registrations count
-  const currentCount =
-    event.teamSize === 1
-      ? joinedTeams.length
-      : joinedTeams.reduce(
-          (sum, team) =>
-            sum + team.members.filter((m) => m.type === "user").length,
-          0,
-        );
-
-  const maxCount = event.teamSize === 1 ? event.maxTeams : totalCapacity;
+  const joinedMembers = getJoinedMembers(event);
+  const playerCount = getJoinedPlayersCount(event);
+  const openSlots = getOpenSlotsCount(event);
 
   // Declined events get muted styling
   const cardClassName = isDeclined
@@ -185,15 +176,26 @@ export function EventCard({
         </div>
       </div>
 
-      <div className="space-y-1">
-        <CapacityBar current={currentCount} max={maxCount} />
-        {claimableSpots > 0 && (
-          <p className="text-xs text-primary-600 dark:text-primary-400">
-            {claimableSpots} open slot{claimableSpots !== 1 ? "s" : ""}{" "}
-            available
-          </p>
-        )}
+      <div className="flex items-center justify-between">
+        <AvatarStack members={joinedMembers} max={4} size="small" />
+        <div className="text-sm text-slate-600 dark:text-slate-400 text-right">
+          <span>
+            {playerCount} / {totalCapacity}
+          </span>
+          {openSlots > 0 && (
+            <span className="text-primary-600 dark:text-primary-400">
+              {" "}
+              • {openSlots} open
+            </span>
+          )}
+        </div>
       </div>
+
+      {actions && (
+        <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800">
+          {actions}
+        </div>
+      )}
     </Card>
   );
 }
@@ -210,19 +212,8 @@ export function EventCardCompact({
   onClick,
   className = "",
 }: EventCardCompactProps) {
-  const joinedTeams = getJoinedTeams(event);
   const totalCapacity = getTotalCapacity(event);
-
-  const currentCount =
-    event.teamSize === 1
-      ? joinedTeams.length
-      : joinedTeams.reduce(
-          (sum, team) =>
-            sum + team.members.filter((m) => m.type === "user").length,
-          0,
-        );
-
-  const maxCount = event.teamSize === 1 ? event.maxTeams : totalCapacity;
+  const playerCount = getJoinedPlayersCount(event);
 
   return (
     <div
@@ -238,7 +229,7 @@ export function EventCardCompact({
           {event.name}
         </h4>
         <span className="text-sm text-slate-500 dark:text-slate-400">
-          {currentCount}/{maxCount}
+          {playerCount}/{totalCapacity}
         </span>
       </div>
       <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
