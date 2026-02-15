@@ -13,7 +13,6 @@ import { useEvent } from "@/hooks/useEvent";
 import type {
   EventLocation,
   EventVisibility,
-  EventJoinType,
   UpdateEventData,
 } from "@/types/event.types";
 import { format } from "date-fns";
@@ -52,7 +51,6 @@ export function EditEventView() {
 
   // Step 3: Rules
   const [visibility, setVisibility] = useState<EventVisibility>("public");
-  const [joinType, setJoinType] = useState<EventJoinType>("open");
 
   // Calculate total capacity
   const totalCapacity = teamSize * parseInt(maxTeams || "0", 10);
@@ -81,7 +79,6 @@ export function EditEventView() {
         placeId: event.placeId,
       });
       setVisibility(event.visibility);
-      setJoinType(event.joinType);
       setInitialized(true);
     }
   }, [event, initialized]);
@@ -129,7 +126,6 @@ export function EditEventView() {
         longitude: location.longitude,
         placeId: location.placeId,
         visibility,
-        joinType,
       };
 
       await eventService.update(event.id, updateData);
@@ -329,6 +325,7 @@ export function EditEventView() {
                 <Input
                   label="Number of Teams"
                   type="number"
+                  inputMode="numeric"
                   value={maxTeams}
                   onChange={(e) => setMaxTeams(e.target.value)}
                   min="1"
@@ -430,7 +427,7 @@ export function EditEventView() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-1.5">
-                  Who can see this event?
+                  Who can join/view this event?
                 </label>
                 <select
                   value={visibility}
@@ -439,25 +436,13 @@ export function EditEventView() {
                   }
                   className="w-full h-11 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:border-primary-600 dark:focus:border-primary-400"
                 >
-                  <option value="public">Public - Anyone can find</option>
-                  <option value="code">Code - Need event code</option>
-                  <option value="private">Private - Invite only</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-1.5">
-                  How can players join?
-                </label>
-                <select
-                  value={joinType}
-                  onChange={(e) => setJoinType(e.target.value as EventJoinType)}
-                  className="w-full h-11 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:border-primary-600 dark:focus:border-primary-400"
-                >
-                  <option value="open">
-                    Open - Anyone who can see can join
+                  <option value="public">
+                    Public - Anyone can find and join
                   </option>
-                  <option value="invite_only">Invite Only</option>
+                  <option value="code">
+                    Code - Need event code to view and join
+                  </option>
+                  <option value="private">Private - Invite only</option>
                 </select>
               </div>
 

@@ -116,9 +116,10 @@ export function useEvent(
         });
       });
 
-      // Filter out users who have already joined
+      // Filter out users who have already joined or declined
       const pendingInvitedIds = event.invitedUserIds.filter(
-        (id) => !registeredUserIds.has(id),
+        (id) =>
+          !registeredUserIds.has(id) && !event.declinedUserIds.includes(id),
       );
 
       if (pendingInvitedIds.length === 0) {

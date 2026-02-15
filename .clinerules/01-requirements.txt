@@ -97,14 +97,13 @@ System Fields:
   - Canceled
   - Completed
 
-Event Visibility (Who Can See Event):
-- Public
-- Code-based
-- Private (invite-only)
+Event Visibility (Who Can Join/View Event):
+- Public: Anyone can find and join the event
+- Code-based: Need event code to view and join
+- Private: Invite only - only invited users can view and join
 
-Event Join Type (How Users Join):
-- Open (auto-join if space available)
-- Invite-only
+Note: Visibility controls both who can see AND who can join the event.
+There is no separate "join type" setting - the visibility setting determines access.
 
 ---
 

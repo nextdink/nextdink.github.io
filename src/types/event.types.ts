@@ -1,6 +1,5 @@
-// Event visibility and join rules
+// Event visibility (controls both who can see AND who can join)
 export type EventVisibility = "public" | "code" | "private";
-export type EventJoinType = "open" | "invite_only";
 export type EventStatus = "active" | "canceled" | "completed";
 
 // Team member types
@@ -67,9 +66,8 @@ export interface Event {
   longitude: number;
   placeId?: string;
 
-  // Visibility & Join Rules
+  // Visibility (controls who can see and join)
   visibility: EventVisibility;
-  joinType: EventJoinType;
   eventCode: string; // Always set, unique across active events
 
   // Status
@@ -112,7 +110,6 @@ export interface CreateEventData {
   longitude: number;
   placeId?: string;
   visibility: EventVisibility;
-  joinType: EventJoinType;
 }
 
 /**
@@ -132,7 +129,6 @@ export interface UpdateEventData {
   longitude?: number;
   placeId?: string;
   visibility?: EventVisibility;
-  joinType?: EventJoinType;
 }
 
 /**

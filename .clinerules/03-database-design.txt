@@ -38,9 +38,8 @@ Fields:
 - longitude (number)
 - placeId (string | null)
 
-// Visibility & Join Rules
+// Visibility (controls who can see AND join)
 - visibility (string)       // public, code, private
-- joinType (string)         // open, invite_only
 - eventCode (string)        // Always set, unique across active events
 
 // Status

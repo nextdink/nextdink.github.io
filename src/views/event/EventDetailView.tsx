@@ -148,10 +148,9 @@ export function EventDetailView() {
   if (!canViewEvent()) {
     // If not logged in, redirect to login
     if (!user) {
-      const returnUrl = encodeURIComponent(
-        window.location.pathname + window.location.search,
-      );
-      // Use useEffect to avoid render-time navigation
+      // For HashRouter, extract the path from the hash (e.g., #/event/ABC123 -> /event/ABC123)
+      const hashPath = window.location.hash.replace(/^#/, "") || "/";
+      const returnUrl = encodeURIComponent(hashPath);
       return (
         <PageLayout showBack backTo={ROUTES.HOME}>
           <EmptyState
@@ -206,9 +205,9 @@ export function EventDetailView() {
   const handleJoin = async () => {
     if (!user) {
       // Redirect to login with return URL (don't auto-join after auth)
-      const returnUrl = encodeURIComponent(
-        window.location.pathname + window.location.hash,
-      );
+      // For HashRouter, extract the path from the hash (e.g., #/event/ABC123 -> /event/ABC123)
+      const hashPath = window.location.hash.replace(/^#/, "") || "/";
+      const returnUrl = encodeURIComponent(hashPath);
       navigate(`${ROUTES.LOGIN}?redirect=${returnUrl}`);
       return;
     }
