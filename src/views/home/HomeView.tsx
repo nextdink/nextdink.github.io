@@ -168,6 +168,16 @@ export function HomeView() {
           onTabChange={(tabId) => setActiveTab(tabId as "schedule" | "invites")}
         />
 
+        {/* Create Event Button - Always visible above content */}
+        <Button
+          onClick={() => navigate(ROUTES.CREATE_EVENT)}
+          className="w-full"
+          variant="secondary"
+        >
+          <Plus className="w-5 h-5" />
+          Create Event
+        </Button>
+
         {/* Tab Content */}
         {activeTab === "schedule" ? (
           <ScheduleTab
@@ -182,18 +192,6 @@ export function HomeView() {
             onDecline={handleDeclineInvite}
           />
         )}
-
-        {/* Create Event Button */}
-        <div className="pt-2">
-          <Button
-            onClick={() => navigate(ROUTES.CREATE_EVENT)}
-            className="w-full"
-            variant="secondary"
-          >
-            <Plus className="w-5 h-5" />
-            Create Event
-          </Button>
-        </div>
       </div>
     </PageLayout>
   );
