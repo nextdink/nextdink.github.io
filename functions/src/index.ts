@@ -76,12 +76,16 @@ async function sendNotificationToUser(
     }
 
     const userData = userDoc.data() as UserDoc;
-    const tokens = userData.fcmTokens || [];
+
+    // Deduplicate tokens (in case duplicates were stored)
+    const tokens = [...new Set(userData.fcmTokens || [])];
 
     if (tokens.length === 0) {
       console.log(`User ${userId} has no FCM tokens`);
       return;
     }
+
+    console.log(`User ${userId} has ${tokens.length} unique token(s)`);
 
     // Check user preferences
     if (preferenceKey && userData.notificationSettings) {
