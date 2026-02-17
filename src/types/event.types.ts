@@ -53,7 +53,7 @@ export interface Event {
   name: string;
   description?: string;
   date: Date;
-  endTime: Date;
+  durationInMinutes: number;
 
   // Team-based capacity
   teamSize: number; // 1-4 players per team, default 1
@@ -101,7 +101,7 @@ export interface CreateEventData {
   name: string;
   description?: string;
   date: Date;
-  endTime: Date;
+  durationInMinutes: number;
   teamSize: number;
   maxTeams: number;
   venueName: string;
@@ -120,7 +120,7 @@ export interface UpdateEventData {
   name?: string;
   description?: string;
   date?: Date;
-  endTime?: Date;
+  durationInMinutes?: number;
   teamSize?: number;
   maxTeams?: number;
   venueName?: string;
@@ -141,6 +141,15 @@ export interface RegisterTeamData {
 // ============================================
 // Utility functions for capacity calculations
 // ============================================
+
+/**
+ * Calculate end time from date and duration.
+ */
+export function getEndTime(event: Event): Date {
+  const endTime = new Date(event.date);
+  endTime.setMinutes(endTime.getMinutes() + event.durationInMinutes);
+  return endTime;
+}
 
 /**
  * Calculate total capacity for an event.
@@ -189,14 +198,27 @@ export function getClaimableSpotsCount(event: Event): number {
 }
 
 /**
- * Count open slots ("looking for partner") in joined teams.
+ * Count open slots in joined teams.
+ * Open slots include:
+ * 1. "Open" type members (looking for +1) in existing teams
+ * 2. Unfilled team capacity (teams that haven't been created yet)
+ *
+ * Note: Guests are considered filled, not open.
  */
 export function getOpenSlotsCount(event: Event): number {
   const joinedTeams = getJoinedTeams(event);
-  return joinedTeams.reduce(
+
+  // Count "open" type members in existing joined teams
+  const openMembersInTeams = joinedTeams.reduce(
     (sum, team) => sum + team.members.filter((m) => m.type === "open").length,
     0,
   );
+
+  // Count unfilled team capacity (teams that can still be created)
+  const unfilledTeamCount = Math.max(0, event.maxTeams - joinedTeams.length);
+  const unfilledCapacity = unfilledTeamCount * event.teamSize;
+
+  return openMembersInTeams + unfilledCapacity;
 }
 
 /**

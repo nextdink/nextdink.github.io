@@ -46,6 +46,7 @@ export function Avatar({
   // Use src or photoUrl (photoUrl is an alias for src)
   // Comment out to only use generate photo for now
   const imageUrl = null; //src || photoUrl;
+  // const imageUrl = src || photoUrl;
 
   // If there's an OAuth photo URL, use it
   if (imageUrl) {

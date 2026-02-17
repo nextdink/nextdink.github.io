@@ -23,6 +23,8 @@ interface UseEventResult {
   userRegistration: Event["registrations"][0] | undefined;
   isUserCaptain: boolean;
   isUserInvited: boolean;
+  // Owner profile
+  ownerProfile: UserProfile | null;
   // Invited users (not yet joined)
   invitedUsers: UserProfile[];
   isLoadingInvitedUsers: boolean;
@@ -87,6 +89,7 @@ export function useEvent(
   const [isLoadingInvitedUsers, setIsLoadingInvitedUsers] = useState(false);
   const [declinedUsers, setDeclinedUsers] = useState<UserProfile[]>([]);
   const [isLoadingDeclinedUsers, setIsLoadingDeclinedUsers] = useState(false);
+  const [ownerProfile, setOwnerProfile] = useState<UserProfile | null>(null);
 
   const fetchEvent = useCallback(async () => {
     if (!eventCode) {
@@ -111,6 +114,26 @@ export function useEvent(
   useEffect(() => {
     fetchEvent();
   }, [fetchEvent]);
+
+  // Fetch owner profile when event changes
+  useEffect(() => {
+    const fetchOwnerProfile = async () => {
+      if (!event) {
+        setOwnerProfile(null);
+        return;
+      }
+
+      try {
+        const profile = await userService.getById(event.ownerId);
+        setOwnerProfile(profile);
+      } catch (err) {
+        console.error("Failed to fetch owner profile:", err);
+        setOwnerProfile(null);
+      }
+    };
+
+    fetchOwnerProfile();
+  }, [event?.ownerId]);
 
   // Fetch invited users when event changes
   useEffect(() => {
@@ -154,7 +177,13 @@ export function useEvent(
     };
 
     fetchInvitedUsers();
-  }, [event]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    event?.id,
+    event?.invitedUserIds,
+    event?.declinedUserIds,
+    event?.registrations,
+  ]);
 
   // Fetch declined users when event changes
   useEffect(() => {
@@ -177,7 +206,8 @@ export function useEvent(
     };
 
     fetchDeclinedUsers();
-  }, [event]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event?.id, event?.declinedUserIds]);
 
   // Computed values
   const joinedRegistrations = event ? getJoinedTeams(event) : [];
@@ -387,6 +417,7 @@ export function useEvent(
     userRegistration,
     isUserCaptain,
     isUserInvited,
+    ownerProfile,
     invitedUsers,
     isLoadingInvitedUsers,
     declinedUsers,

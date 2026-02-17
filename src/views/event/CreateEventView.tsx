@@ -21,23 +21,70 @@ export function CreateEventView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Calculate default date (today) and time (next whole hour)
+  const getDefaultDate = () => {
+    return new Date().toISOString().split("T")[0];
+  };
+
+  const getDefaultTime = () => {
+    const now = new Date();
+    // Round up to next hour
+    now.setHours(now.getHours() + 1);
+    now.setMinutes(0);
+    return `${now.getHours().toString().padStart(2, "0")}:00`;
+  };
+
   // Step 1: Basic Info
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [date, setDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
+  const [date, setDate] = useState(getDefaultDate);
+  const [startTime, setStartTime] = useState(getDefaultTime);
+  const [durationInMinutes, setDurationInMinutes] = useState(120); // Default 2 hours
   const [teamSize, setTeamSize] = useState(1); // 1-4, default 1 for singles
   const [maxTeams, setMaxTeams] = useState("8");
+
+  // Duration options in minutes
+  const durationOptions = [
+    { value: 30, label: "30 min" },
+    { value: 60, label: "1 hour" },
+    { value: 90, label: "1.5 hours" },
+    { value: 120, label: "2 hours" },
+    { value: 150, label: "2.5 hours" },
+    { value: 180, label: "3 hours" },
+    { value: 240, label: "4 hours" },
+  ];
+
+  // Format duration for display
+  const formatDuration = (minutes: number): string => {
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (mins === 0) return `${hours} hour${hours > 1 ? "s" : ""}`;
+    return `${hours}h ${mins}m`;
+  };
 
   // Step 2: Location
   const [location, setLocation] = useState<EventLocation | null>(null);
 
   // Step 3: Rules
-  const [visibility, setVisibility] = useState<EventVisibility>("public");
+  const [visibility, setVisibility] = useState<EventVisibility>("code");
 
   // Calculate total capacity
   const totalCapacity = teamSize * parseInt(maxTeams || "0", 10);
+
+  // Calculate date bounds (today to 364 days from now)
+  const now = new Date();
+  const today = now.toISOString().split("T")[0];
+  const maxDate = new Date();
+  maxDate.setDate(maxDate.getDate() + 364);
+  const maxDateStr = maxDate.toISOString().split("T")[0];
+
+  // Check if selected date/time is in the future
+  const isDateTimeValid = (): boolean => {
+    if (!date || !startTime) return false;
+    const selectedDateTime = new Date(`${date}T${startTime}`);
+    return selectedDateTime > new Date();
+  };
 
   // Get team size label for summary
   const getTeamSizeLabel = (size: number) => {
@@ -60,15 +107,14 @@ export function CreateEventView() {
     setError(null);
 
     try {
-      // Parse date and times
+      // Parse date and time
       const eventDate = new Date(`${date}T${startTime}`);
-      const eventEndTime = new Date(`${date}T${endTime}`);
 
       const eventData: CreateEventData = {
         name,
         description: description || undefined,
         date: eventDate,
-        endTime: eventEndTime,
+        durationInMinutes,
         teamSize,
         maxTeams: parseInt(maxTeams, 10),
         venueName: location.venueName,
@@ -94,7 +140,12 @@ export function CreateEventView() {
   };
 
   const canProceedStep1 =
-    name && date && startTime && endTime && parseInt(maxTeams, 10) > 0;
+    name &&
+    date &&
+    startTime &&
+    durationInMinutes > 0 &&
+    parseInt(maxTeams, 10) > 0 &&
+    isDateTimeValid();
   const canProceedStep2 = location !== null;
   const canProceedStep3 = true;
 
@@ -159,23 +210,39 @@ export function CreateEventView() {
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
+                min={today}
+                max={maxDateStr}
                 required
               />
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="Start Time"
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  required
-                />
-                <Input
-                  label="End Time"
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  required
-                />
+              <Input
+                label="Start Time"
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                required
+              />
+              {date && startTime && !isDateTimeValid() && (
+                <p className="text-xs text-red-500 dark:text-red-400 -mt-2">
+                  Please select a future date and time
+                </p>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-1.5">
+                  Duration
+                </label>
+                <select
+                  value={durationInMinutes}
+                  onChange={(e) =>
+                    setDurationInMinutes(parseInt(e.target.value, 10))
+                  }
+                  className="w-full h-11 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:border-primary-600 dark:focus:border-primary-400"
+                >
+                  {durationOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Team Size Selection */}
@@ -377,7 +444,7 @@ export function CreateEventView() {
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Time</span>
                 <span className="text-slate-900 dark:text-slate-100">
-                  {startTime} - {endTime}
+                  {startTime} ({formatDuration(durationInMinutes)})
                 </span>
               </div>
               <div className="flex justify-between">

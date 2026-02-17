@@ -1,9 +1,9 @@
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
-import { Spinner } from './Spinner';
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { Spinner } from "./Spinner";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost';
-  size?: 'default' | 'small';
+  variant?: "primary" | "secondary" | "ghost" | "danger";
+  size?: "default" | "small";
   loading?: boolean;
   children?: ReactNode;
   label?: string;
@@ -12,28 +12,34 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
-      variant = 'primary',
-      size = 'default',
+      variant = "primary",
+      size = "default",
       loading = false,
       disabled,
       children,
       label,
-      className = '',
+      className = "",
       ...props
     },
-    ref
+    ref,
   ) => {
-    const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+    const baseStyles =
+      "inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
 
     const variantStyles = {
-      primary: 'bg-primary-600 text-white hover:bg-primary-700 dark:bg-primary-500 dark:text-slate-950 dark:hover:bg-primary-400',
-      secondary: 'bg-slate-100 text-slate-900 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700',
-      ghost: 'bg-transparent text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800',
+      primary:
+        "bg-primary-600 text-white hover:bg-primary-700 dark:bg-primary-500 dark:text-slate-950 dark:hover:bg-primary-400",
+      secondary:
+        "bg-slate-100 text-slate-900 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700",
+      ghost:
+        "bg-transparent text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800",
+      danger:
+        "bg-red-400 text-white hover:bg-red-500 dark:bg-red-500 dark:hover:bg-red-400",
     };
-    
+
     const sizeStyles = {
-      default: 'h-11 px-4',
-      small: 'h-9 px-3 text-sm',
+      default: "h-11 px-4",
+      small: "h-9 px-3 text-sm",
     };
 
     return (
@@ -53,7 +59,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         )}
       </button>
     );
-  }
+  },
 );
 
-Button.displayName = 'Button';
+Button.displayName = "Button";

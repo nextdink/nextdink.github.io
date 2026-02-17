@@ -1,7 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import {
   Calendar,
-  Clock,
   MapPin,
   Crown,
   Shield,
@@ -134,7 +133,7 @@ export function EventCard({
       onClick={() => navigate(getEventRoute(event.eventCode))}
     >
       <div className="flex items-start justify-between mb-2">
-        <h3 className="text-base font-medium text-slate-900 dark:text-slate-100 flex-1 mr-2">
+        <h3 className="text-base font-medium text-primary-600 dark:text-primary-400 flex-1 mr-2">
           {event.name}
         </h3>
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -162,12 +161,8 @@ export function EventCard({
       <div className="space-y-2 mb-3">
         <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
           <Calendar className="w-4 h-4" />
-          <span>{format(event.date, "EEE, MMM d, yyyy")}</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-          <Clock className="w-4 h-4" />
           <span>
-            {format(event.date, "h:mm a")} - {format(event.endTime, "h:mm a")}
+            {format(event.date, "EEE, MMM d")} · {format(event.date, "h:mm a")}
           </span>
         </div>
         <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">

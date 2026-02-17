@@ -83,9 +83,7 @@ export function RegistrationCard({
             className={`text-sm ${
               isFirstMemberOpen
                 ? "text-primary-600 dark:text-primary-400"
-                : isFirstMemberGuest
-                  ? "italic text-slate-500 dark:text-slate-400"
-                  : "text-slate-900 dark:text-slate-100"
+                : "text-slate-900 dark:text-slate-100"
             }`}
           >
             {isFirstMemberOpen ? "Open" : firstMemberName}
@@ -202,9 +200,7 @@ export function RegistrationCard({
                     className={`text-sm ${
                       member.type === "open"
                         ? "text-primary-600 dark:text-primary-400"
-                        : member.type === "guest"
-                          ? "italic text-slate-500 dark:text-slate-400"
-                          : "text-slate-900 dark:text-slate-100"
+                        : "text-slate-900 dark:text-slate-100"
                     }`}
                   >
                     {member.type === "user" && member.displayName}

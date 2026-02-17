@@ -5,7 +5,7 @@
 /* 
  * Primary brand color palette - CENTRALIZED THEME COLORS
  * To change the app's color scheme, update these values.
- * Currently using cyan - swap with any Tailwind color palette.
+ * Currently using blue-teal (custom blend) - swap with any Tailwind color palette.
  */
 @theme {
   --color-primary-50: #ecfeff;
@@ -13,11 +13,11 @@
   --color-primary-200: #a5f3fc;
   --color-primary-300: #67e8f9;
   --color-primary-400: #22d3ee;
-  --color-primary-500: #06b6d4;
-  --color-primary-600: #0891b2;
-  --color-primary-700: #0e7490;
-  --color-primary-800: #155e75;
-  --color-primary-900: #164e63;
+  --color-primary-500: #0891b2;
+  --color-primary-600: #0e7490;
+  --color-primary-700: #155e75;
+  --color-primary-800: #164e63;
+  --color-primary-900: #134e4a;
   --color-primary-950: #083344;
 }
 

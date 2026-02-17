@@ -25,7 +25,7 @@ Fields:
 - name (string)
 - description (string | null)
 - date (timestamp)          // start datetime
-- endTime (timestamp)
+- durationInMinutes (number) // event duration in minutes (e.g., 120 for 2 hours)
 
 // Team-based capacity (replaces maxPlayers)
 - teamSize (number)         // 1-4 players per team, default 1

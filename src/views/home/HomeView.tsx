@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Calendar, Search, Mail, X } from "lucide-react";
+import { Plus, Calendar, Search, Mail } from "lucide-react";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -377,12 +377,11 @@ function InviteEventCard({
           </Button>
           <Button
             onClick={handleDecline}
-            variant="secondary"
+            variant="danger"
             size="small"
             className="flex-1"
             loading={isLoading}
           >
-            <X className="w-4 h-4" />
             Decline
           </Button>
         </div>
