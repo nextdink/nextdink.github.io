@@ -76,12 +76,6 @@ jobs:
   deploy-functions:
     runs-on: ubuntu-latest
     needs: build  # Run after frontend build succeeds
-    # Only deploy functions when functions/ directory changes
-    # Remove this 'if' condition to always deploy functions
-    if: |
-      contains(github.event.head_commit.modified, 'functions/') ||
-      contains(github.event.head_commit.added, 'functions/') ||
-      github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
