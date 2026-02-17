@@ -1,136 +1,270 @@
+import { db } from "@/config/firebase";
 import {
   doc,
   updateDoc,
-  collection,
-  query,
-  where,
-  orderBy,
-  limit,
-  getDocs,
-  serverTimestamp,
-  type Timestamp,
-  addDoc,
-  writeBatch,
-} from 'firebase/firestore';
-import { db } from '@/config/firebase';
-import type { Notification, NotificationType } from '@/types';
+  arrayUnion,
+  arrayRemove,
+  getDoc,
+} from "firebase/firestore";
+import {
+  registerForPushNotifications,
+  setupForegroundMessageHandler,
+} from "@/config/firebase";
 
-// Helper to convert Firestore timestamps to Date
-const convertTimestamp = (timestamp: Timestamp | null): Date => {
-  return timestamp ? timestamp.toDate() : new Date();
+/**
+ * Notification types that can be triggered
+ */
+export type NotificationType =
+  | "event_invite"
+  | "slot_claimed"
+  | "waitlist_promotion"
+  | "event_canceled"
+  | "event_updated";
+
+/**
+ * User notification preferences
+ */
+export interface NotificationPreferences {
+  eventInvites: boolean;
+  slotClaimed: boolean;
+  waitlistPromotion: boolean;
+  eventCanceled: boolean;
+  eventUpdated: boolean;
+}
+
+/**
+ * Default notification preferences (all enabled)
+ */
+export const defaultNotificationPreferences: NotificationPreferences = {
+  eventInvites: true,
+  slotClaimed: true,
+  waitlistPromotion: true,
+  eventCanceled: true,
+  eventUpdated: true,
 };
 
-export const notificationService = {
-  // Create a notification for a user
-  async create(
-    userId: string,
-    type: NotificationType,
-    relatedEntityId: string
-  ): Promise<string> {
-    const notificationsRef = collection(db, 'users', userId, 'notifications');
-    const docRef = await addDoc(notificationsRef, {
-      type,
-      relatedEntityId,
-      isRead: false,
-      createdAt: serverTimestamp(),
-    });
+/**
+ * Foreground notification payload
+ */
+export interface ForegroundNotification {
+  title: string;
+  body: string;
+  type?: NotificationType;
+  eventId?: string;
+  eventCode?: string;
+}
 
-    return docRef.id;
-  },
+/**
+ * Register current device for push notifications and save token to user profile
+ *
+ * @param userId - The Firebase user ID
+ * @returns true if registration succeeded, false otherwise
+ */
+export async function registerDeviceForNotifications(
+  userId: string,
+): Promise<boolean> {
+  try {
+    // Get FCM token (this also requests permission if needed)
+    const token = await registerForPushNotifications();
 
-  // Create notifications for multiple users
-  async createForMultipleUsers(
-    userIds: string[],
-    type: NotificationType,
-    relatedEntityId: string
-  ): Promise<void> {
-    const batch = writeBatch(db);
-
-    for (const userId of userIds) {
-      const notificationRef = doc(collection(db, 'users', userId, 'notifications'));
-      batch.set(notificationRef, {
-        type,
-        relatedEntityId,
-        isRead: false,
-        createdAt: serverTimestamp(),
-      });
+    if (!token) {
+      console.log("Failed to get FCM token");
+      return false;
     }
 
-    await batch.commit();
-  },
+    // Save token to user document
+    await saveUserFCMToken(userId, token);
 
-  // Get notifications for a user
-  async getByUser(userId: string, limitCount = 50): Promise<Notification[]> {
-    const notificationsRef = collection(db, 'users', userId, 'notifications');
-    const q = query(
-      notificationsRef,
-      orderBy('createdAt', 'desc'),
-      limit(limitCount)
-    );
+    console.log("Device registered for notifications");
+    return true;
+  } catch (error) {
+    console.error("Error registering device for notifications:", error);
+    return false;
+  }
+}
 
-    const snapshot = await getDocs(q);
+/**
+ * Save FCM token to user document
+ * Uses arrayUnion to avoid duplicates
+ *
+ * @param userId - The Firebase user ID
+ * @param token - The FCM token
+ */
+export async function saveUserFCMToken(
+  userId: string,
+  token: string,
+): Promise<void> {
+  const userRef = doc(db, "users", userId);
 
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      type: doc.data().type,
-      relatedEntityId: doc.data().relatedEntityId,
-      isRead: doc.data().isRead,
-      createdAt: convertTimestamp(doc.data().createdAt),
-    }));
-  },
+  await updateDoc(userRef, {
+    fcmTokens: arrayUnion(token),
+  });
 
-  // Get unread notifications count
-  async getUnreadCount(userId: string): Promise<number> {
-    const notificationsRef = collection(db, 'users', userId, 'notifications');
-    const q = query(notificationsRef, where('isRead', '==', false));
-    const snapshot = await getDocs(q);
-    return snapshot.size;
-  },
+  console.log("FCM token saved to user profile");
+}
 
-  // Mark notification as read
-  async markAsRead(userId: string, notificationId: string): Promise<void> {
-    const notificationRef = doc(db, 'users', userId, 'notifications', notificationId);
-    await updateDoc(notificationRef, {
-      isRead: true,
+/**
+ * Remove FCM token from user document
+ * Called when user logs out or disables notifications
+ *
+ * @param userId - The Firebase user ID
+ * @param token - The FCM token to remove
+ */
+export async function removeUserFCMToken(
+  userId: string,
+  token: string,
+): Promise<void> {
+  const userRef = doc(db, "users", userId);
+
+  await updateDoc(userRef, {
+    fcmTokens: arrayRemove(token),
+  });
+
+  console.log("FCM token removed from user profile");
+}
+
+/**
+ * Update user's notification preferences
+ *
+ * @param userId - The Firebase user ID
+ * @param preferences - Partial preferences to update
+ */
+export async function updateNotificationPreferences(
+  userId: string,
+  preferences: Partial<NotificationPreferences>,
+): Promise<void> {
+  const userRef = doc(db, "users", userId);
+
+  // Build update object with nested fields
+  const updates: Record<string, boolean> = {};
+  for (const [key, value] of Object.entries(preferences)) {
+    updates[`notificationSettings.${key}`] = value;
+  }
+
+  await updateDoc(userRef, updates);
+
+  console.log("Notification preferences updated");
+}
+
+/**
+ * Get user's notification preferences
+ *
+ * @param userId - The Firebase user ID
+ * @returns User's notification preferences or defaults
+ */
+export async function getNotificationPreferences(
+  userId: string,
+): Promise<NotificationPreferences> {
+  const userRef = doc(db, "users", userId);
+  const snapshot = await getDoc(userRef);
+
+  if (!snapshot.exists()) {
+    return defaultNotificationPreferences;
+  }
+
+  const data = snapshot.data();
+  return {
+    ...defaultNotificationPreferences,
+    ...data.notificationSettings,
+  };
+}
+
+/**
+ * Check if push notifications are available and enabled
+ */
+export function getNotificationStatus(): {
+  supported: boolean;
+  permission: NotificationPermission | "unsupported";
+} {
+  if (!("Notification" in window)) {
+    return { supported: false, permission: "unsupported" };
+  }
+
+  return {
+    supported: true,
+    permission: Notification.permission,
+  };
+}
+
+/**
+ * Request notification permission from the user
+ *
+ * @returns The permission status after the request
+ */
+export async function requestNotificationPermission(): Promise<
+  NotificationPermission | "unsupported"
+> {
+  if (!("Notification" in window)) {
+    return "unsupported";
+  }
+
+  const permission = await Notification.requestPermission();
+  return permission;
+}
+
+/**
+ * Subscribe to foreground notifications
+ * Shows a toast/banner when a notification is received while the app is open
+ *
+ * @param onNotification - Callback when a notification is received
+ * @returns Unsubscribe function
+ */
+export async function subscribeToForegroundNotifications(
+  onNotification: (notification: ForegroundNotification) => void,
+): Promise<(() => void) | null> {
+  return setupForegroundMessageHandler((payload) => {
+    const notification: ForegroundNotification = {
+      title: payload.notification?.title || "Next Dink",
+      body: payload.notification?.body || "You have a new notification",
+      type: payload.data?.type as NotificationType | undefined,
+      eventId: payload.data?.eventId,
+      eventCode: payload.data?.eventCode,
+    };
+
+    onNotification(notification);
+  });
+}
+
+/**
+ * Show a local notification (useful for foreground notifications)
+ *
+ * @param title - Notification title
+ * @param options - Notification options
+ */
+export async function showLocalNotification(
+  title: string,
+  options: NotificationOptions & { data?: Record<string, string> },
+): Promise<void> {
+  if (!("Notification" in window) || Notification.permission !== "granted") {
+    console.warn("Cannot show local notification: permission not granted");
+    return;
+  }
+
+  // Try using service worker for notification (more reliable)
+  const registration = await navigator.serviceWorker?.ready;
+  if (registration) {
+    await registration.showNotification(title, {
+      icon: "/icons/icon-192.png",
+      badge: "/icons/badge-72.png",
+      ...options,
     });
-  },
-
-  // Mark all notifications as read
-  async markAllAsRead(userId: string): Promise<void> {
-    const notificationsRef = collection(db, 'users', userId, 'notifications');
-    const q = query(notificationsRef, where('isRead', '==', false));
-    const snapshot = await getDocs(q);
-
-    const batch = writeBatch(db);
-    snapshot.docs.forEach(doc => {
-      batch.update(doc.ref, { isRead: true });
+  } else {
+    // Fallback to Notification API
+    new Notification(title, {
+      icon: "/icons/icon-192.png",
+      ...options,
     });
+  }
+}
 
-    await batch.commit();
-  },
-
-  // Helper methods for specific notification types
-  async notifyEventInvite(userId: string, eventId: string): Promise<void> {
-    await this.create(userId, 'invite', eventId);
-  },
-
-  async notifyEventApproved(userId: string, eventId: string): Promise<void> {
-    await this.create(userId, 'approved', eventId);
-  },
-
-  async notifyWaitlistPromoted(userId: string, eventId: string): Promise<void> {
-    await this.create(userId, 'waitlist_promoted', eventId);
-  },
-
-  async notifyWaitlistPositionChanged(userId: string, eventId: string): Promise<void> {
-    await this.create(userId, 'waitlist_position_changed', eventId);
-  },
-
-  async notifyEventCanceled(userIds: string[], eventId: string): Promise<void> {
-    await this.createForMultipleUsers(userIds, 'event_canceled', eventId);
-  },
-
-  async notifyEventUpdated(userIds: string[], eventId: string): Promise<void> {
-    await this.createForMultipleUsers(userIds, 'event_updated', eventId);
-  },
-};
+/**
+ * Get the current FCM token (if available)
+ * Useful for debugging or displaying to user
+ */
+export async function getCurrentFCMToken(): Promise<string | null> {
+  try {
+    return await registerForPushNotifications();
+  } catch {
+    return null;
+  }
+}

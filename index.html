@@ -2,12 +2,49 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png" />
+    
+    <!-- Theme Colors -->
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#020617" media="(prefers-color-scheme: dark)" />
+    
+    <!-- Apple PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Next Dink" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    
+    <!-- iOS Splash Screens (optional, but recommended for better UX) -->
+    <!-- iPhone 14 Pro Max (430x932) -->
+    <link rel="apple-touch-startup-image" 
+          media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)"
+          href="/icons/splash-1290x2796.png" />
+    <!-- iPhone 14 Pro (393x852) -->
+    <link rel="apple-touch-startup-image"
+          media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)"
+          href="/icons/splash-1179x2556.png" />
+    <!-- iPhone 14, 13, 12 (390x844) -->
+    <link rel="apple-touch-startup-image"
+          media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)"
+          href="/icons/splash-1170x2532.png" />
+    
+    <!-- SEO & Social -->
+    <meta name="description" content="Organize serious pickleball games with controlled capacity and clear participation. No more group text chaos." />
+    <meta name="keywords" content="pickleball, sports, events, games, scheduling" />
+    
+    <!-- Open Graph / Social Sharing -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Next Dink" />
+    <meta property="og:description" content="Organize serious pickleball games with controlled capacity and clear participation." />
+    <meta property="og:image" content="/icons/icon-512.png" />
+    
     <title>Next Dink</title>
   </head>
   <body>
