@@ -433,9 +433,8 @@ export const onEventUpdated = functions.firestore
     const venueChanged = before.venueName !== after.venueName;
     const nameChanged = before.name !== after.name;
 
-    // Also check for status change (but not to canceled - that's handled separately)
-    const statusChanged =
-      before.status !== after.status && after.status !== "canceled";
+    // Check for status change (after.status is 'active' here since we returned early above)
+    const statusChanged = before.status !== after.status;
 
     if (!dateChanged && !venueChanged && !nameChanged && !statusChanged) {
       return;
