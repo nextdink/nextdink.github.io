@@ -1,87 +1,39 @@
-import { generateAvatarSvg } from "@/utils/avatarUtils";
+/**
+ * Avatar wrapper for nextdink
+ * Re-exports shared Avatar component with nextdink's default theme
+ */
+import {
+  Avatar as SharedAvatar,
+  type AvatarProps,
+} from "@shared/components/ui/Avatar";
+export type { AvatarProps, AvatarSize } from "@shared/components/ui/Avatar";
 
-type AvatarSize = "xsmall" | "small" | "default" | "large";
+// Map old size names to shared component sizes for backwards compatibility
+type LegacySize = "xsmall" | "small" | "default" | "large";
 
-interface AvatarProps {
-  /** URL of the user's profile photo (from OAuth provider) */
-  src?: string | null;
-  /** Alternative prop name for photo URL (alias for src) */
-  photoUrl?: string | null;
-  /** User ID for generating deterministic avatar when no photo */
-  userId?: string;
-  /** User's display name for initials on generated avatar */
-  displayName?: string | null;
-  /** Alt text for the avatar image */
-  alt?: string;
-  /** Size variant */
-  size?: AvatarSize;
-  /** Additional CSS classes */
-  className?: string;
+interface NextdinkAvatarProps extends Omit<AvatarProps, "size"> {
+  size?: LegacySize;
 }
 
-const sizeStyles: Record<AvatarSize, string> = {
-  xsmall: "w-6 h-6",
-  small: "w-8 h-8",
-  default: "w-10 h-10",
-  large: "w-16 h-16",
+const sizeMapping: Record<LegacySize, AvatarProps["size"]> = {
+  xsmall: "xs",
+  small: "small",
+  default: "default",
+  large: "large",
 };
 
-// SVG sizes for generating avatars at appropriate resolution
-const svgSizes: Record<AvatarSize, number> = {
-  xsmall: 24,
-  small: 32,
-  default: 40,
-  large: 64,
-};
-
-export function Avatar({
-  // src,
-  // photoUrl,
-  userId,
-  displayName,
-  alt = "User",
-  size = "default",
-  className = "",
-}: AvatarProps) {
-  // Use src or photoUrl (photoUrl is an alias for src)
-  // Comment out to only use generate photo for now
-  const imageUrl = null; //src || photoUrl;
-  // const imageUrl = src || photoUrl;
-
-  // If there's an OAuth photo URL, use it
-  if (imageUrl) {
-    return (
-      <img
-        src={imageUrl}
-        alt={alt}
-        className={`
-          ${sizeStyles[size]}
-          rounded-full object-cover
-          bg-slate-100 dark:bg-slate-800
-          ${className}
-        `}
-      />
-    );
-  }
-
-  // Generate deterministic avatar based on user ID with initials
-  // Use a fallback ID if none provided (shouldn't happen in practice)
-  const effectiveUserId = userId || "default-user";
-  const generatedSrc = generateAvatarSvg(
-    effectiveUserId,
-    displayName,
-    svgSizes[size],
-  );
-
+/**
+ * Nextdink Avatar - uses vibrant theme by default
+ */
+export function Avatar({ size = "default", ...props }: NextdinkAvatarProps) {
   return (
-    <img
-      src={generatedSrc}
-      alt={alt}
-      className={`
-        ${sizeStyles[size]}
-        rounded-full
-        ${className}
-      `}
+    <SharedAvatar
+      theme="vibrant"
+      pattern="shapes"
+      size={sizeMapping[size]}
+      {...props}
     />
   );
 }
+
+export default Avatar;
