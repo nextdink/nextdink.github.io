@@ -113,7 +113,7 @@ async function sendNotificationToUser(
         },
         fcmOptions: {
           link: notification.data?.eventCode
-            ? `/#/event/${notification.data.eventCode}`
+            ? `/#/events/${notification.data.eventCode}`
             : "/",
         },
       },
