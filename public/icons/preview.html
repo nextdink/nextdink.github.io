@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Next Dink Icon Preview</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: #f1f5f9;
+      color: #1e293b;
+      padding: 40px 20px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #64748b;
+      margin-bottom: 40px;
+      font-size: 14px;
+    }
+    .ideas {
+      display: flex;
+      flex-direction: column;
+      gap: 48px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .idea {
+      background: white;
+      border-radius: 16px;
+      border: 1px solid #e2e8f0;
+      padding: 32px;
+    }
+    .idea h2 {
+      font-size: 20px;
+      margin-bottom: 4px;
+    }
+    .idea .desc {
+      color: #64748b;
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+    .previews {
+      display: flex;
+      gap: 32px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .preview-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .preview-item label {
+      font-size: 12px;
+      color: #94a3b8;
+      font-weight: 500;
+    }
+    /* iOS squircle mask */
+    .ios-mask {
+      -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' ry='22'/%3E%3C/svg%3E");
+      mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' ry='22'/%3E%3C/svg%3E");
+      -webkit-mask-size: cover;
+      mask-size: cover;
+    }
+    .android-mask {
+      border-radius: 50%;
+      overflow: hidden;
+    }
+    .size-60 img { width: 60px; height: 60px; }
+    .size-120 img { width: 120px; height: 120px; }
+    .size-180 img { width: 180px; height: 180px; }
+    
+    .mock-homescreen {
+      background: #1e293b;
+      border-radius: 20px;
+      padding: 20px 16px 12px;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .mock-homescreen img {
+      width: 60px;
+      height: 60px;
+    }
+    .mock-homescreen span {
+      color: white;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .comparison {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .recommended {
+      border: 2px solid #0e7490;
+      position: relative;
+    }
+    .recommended::after {
+      content: '★ Recommended (Idea 1)';
+      position: absolute;
+      top: -12px;
+      left: 16px;
+      background: #0e7490;
+      color: white;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🏓 Next Dink — Icon Options</h1>
+  <p class="subtitle">Compare all 5 icon ideas. Shown at various sizes with iOS squircle and Android circle masks.</p>
+
+  <div class="ideas">
+
+    <!-- Idea 1 -->
+    <div class="idea recommended">
+      <h2>Idea 1: Full-Bleed Solid + "ND"</h2>
+      <p class="desc">Clean, modern. Cyan gradient background fills the entire canvas with bold "ND" text. Like Slack, Discord, etc.</p>
+      <div class="previews">
+        <div class="preview-item">
+          <label>iOS Home Screen</label>
+          <div class="mock-homescreen">
+            <div class="ios-mask"><img src="icon-512.png" alt="Idea 1"></div>
+            <span>Next Dink</span>
+          </div>
+        </div>
+        <div class="preview-item">
+          <label>Android</label>
+          <div class="mock-homescreen">
+            <div class="android-mask"><img src="icon-512.png" alt="Idea 1"></div>
+            <span>Next Dink</span>
+          </div>
+        </div>
+        <div class="preview-item size-120">
+          <label>120px</label>
+          <div class="ios-mask"><img src="icon-512.png" alt="Idea 1"></div>
+        </div>
+        <div class="preview-item size-180">
+          <label>180px</label>
+          <div class="ios-mask"><img src="icon-512.png" alt="Idea 1"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Idea 2 -->
+    <div class="idea">
+      <h2>Idea 2: Pickleball Texture + "ND"</h2>
+      <p class="desc">Same gradient background with subtle pickleball hole pattern as texture. More personality while staying clean.</p>
+      <div class="previews">
+        <div class="preview-item">
+          <label>iOS Home Screen</label>
+          <div class="mock-homescreen">
+            <div class="ios-mask"><img src="preview-idea2/icon-512.png" alt="Idea 2"></div>
+            <span>Next Dink</span>
+          </div>
+        </div>
+        <div class="preview-item">
+          <label>Android</label>
+          <div class="mock-homescreen">
+            <div class="android-mask"><img src="preview-idea2/icon-512.png" alt="Idea 2"></div>
+            <span>Next Dink</span>
+          </div>
+        </div>
+        <div class="preview-item size-120">
+          <label>120px</label>
+          <div class="ios-mask"><img src="preview-idea2/icon-512.png" alt="Idea 2"></div>
+        </div>
+        <div class="preview-item size-180">
+          <label>180px</label>
+          <div class="ios-mask"><img src="preview-idea2/icon-512.png" alt="Idea 2"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Idea 3 -->
+    <div class="idea">
+      <h2>Idea 3: Paddle Silhouette</h2>
+      <p class="desc">A white pickleball paddle shape on brand background with "ND" on the paddle face. Distinctive silhouette.</p>
+      <div class="previews">
+        <div class="preview-item">
+          <label>iOS Home Screen</label>
+          <div class="mock-homescreen">
+            <div class="ios-mask"><img src="preview-idea3/icon-512.png" alt="Idea 3"></div>
+            <span>Next Dink</span>
+          </div>
+        </div>
+        <div class="preview-item">
+          <label>Android</label>
+          <div class="mock-homescreen">
+            <div class="android-mask"><img src="preview-idea3/icon-512.png" alt="Idea 3"></div>
+            <span>Next Dink</span>
+          </div>
+        </div>
+        <div class="preview-item size-120">
+          <label>120px</label>
+          <div class="ios-mask"><img src="preview-idea3/icon-512.png" alt="Idea 3"></div>
+        </div>
+        <div class="preview-item size-180">
+          <label>180px</label>
+          <div class="ios-mask"><img src="preview-idea3/icon-512.png" alt="Idea 3"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Idea 4 -->
+    <div class="idea">
+      <h2>Idea 4: Letter "N" with Court Line</h2>
+      <p class="desc">Bold geometric "N" with the diagonal styled as a net. Small pickleball accent. Clean and scalable.</p>
+      <div class="previews">
+        <div class="preview-item">
+          <label>iOS Home Screen</label>
+          <div class="mock-homescreen">
+            <div class="ios-mask"><img src="preview-idea4/icon-512.png" alt="Idea 4"></div>
+            <span>Next Dink</span>
+          </div>
+        </div>
+        <div class="preview-item">
+          <label>Android</label>
+          <div class="mock-homescreen">
+            <div class="android-mask"><img src="preview-idea4/icon-512.png" alt="Idea 4"></div>
+            <span>Next Dink</span>
+          </div>
+        </div>
+        <div class="preview-item size-120">
+          <label>120px</label>
+          <div class="ios-mask"><img src="preview-idea4/icon-512.png" alt="Idea 4"></div>
+        </div>
+        <div class="preview-item size-180">
+          <label>180px</label>
+          <div class="ios-mask"><img src="preview-idea4/icon-512.png" alt="Idea 4"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Idea 5 -->
+    <div class="idea">
+      <h2>Idea 5: Stylized Pickleball</h2>
+      <p class="desc">A realistic pickleball with holes on brand background. No text — the ball itself is the brand mark.</p>
+      <div class="previews">
+        <div class="preview-item">
+          <label>iOS Home Screen</label>
+          <div class="mock-homescreen">
+            <div class="ios-mask"><img src="preview-idea5/icon-512.png" alt="Idea 5"></div>
+            <span>Next Dink</span>
+          </div>
+        </div>
+        <div class="preview-item">
+          <label>Android</label>
+          <div class="mock-homescreen">
+            <div class="android-mask"><img src="preview-idea5/icon-512.png" alt="Idea 5"></div>
+            <span>Next Dink</span>
+          </div>
+        </div>
+        <div class="preview-item size-120">
+          <label>120px</label>
+          <div class="ios-mask"><img src="preview-idea5/icon-512.png" alt="Idea 5"></div>
+        </div>
+        <div class="preview-item size-180">
+          <label>180px</label>
+          <div class="ios-mask"><img src="preview-idea5/icon-512.png" alt="Idea 5"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="text-align: center; margin-top: 48px; color: #94a3b8; font-size: 13px;">
+    <p>To use a different idea, run: <code>node scripts/generate-icons-ideaN.cjs</code></p>
+    <p>Then copy the preview files to replace the main icons in <code>public/icons/</code></p>
+  </div>
+</body>
+</html>
