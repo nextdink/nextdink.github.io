@@ -1,63 +1,159 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users collection
+
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isUser(userId) {
+      return isAuth() && request.auth.uid == userId;
+    }
+
+    function isAdminOrOwner(ownerId, adminIds) {
+      return isAuth() && (request.auth.uid == ownerId || request.auth.uid in adminIds);
+    }
+
+    function changedFields() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // ============================================
+    // USERS
+    // ============================================
     match /users/{userId} {
-      // Anyone authenticated can read user profiles
-      allow read: if request.auth != null;
-      
-      // Users can only write their own document
-      allow write: if request.auth != null && request.auth.uid == userId;
+      // Anyone can read profiles (search, avatars, display names)
+      allow read: if true;
+
+      allow create: if isUser(userId)
+                    && request.resource.data.keys().hasAll(['displayName', 'createdAt', 'updatedAt'])
+                    && request.resource.data.displayName is string;
+
+      // Whitelist allowed update fields
+      allow update: if isUser(userId)
+                    && changedFields().hasOnly([
+                         'displayName', 'displayNameLower', 'photoUrl',
+                         'fcmTokens', 'notificationSettings', 'updatedAt'
+                       ]);
+
+      allow delete: if false;
     }
-    
-    // Events collection
+
+    // ============================================
+    // EVENTS
+    // ============================================
     match /events/{eventId} {
-      // Public events can be read by anyone
-      // Private events need authentication
-      allow read: if resource.data.visibility == 'public' 
-                  || request.auth != null;
-      
-      // Only authenticated users can create events
-      allow create: if request.auth != null;
-      
-      // Owner and admins can update
-      allow update: if request.auth != null 
-                    && (request.auth.uid == resource.data.ownerId 
-                        || request.auth.uid in resource.data.adminIds);
-      
-      // Only owner can delete
-      allow delete: if request.auth != null 
-                    && request.auth.uid == resource.data.ownerId;
+      // --- READ ---
+      // Public events: anyone (even unauthenticated)
+      allow read: if resource.data.visibility == 'public';
+
+      // All other events: any authenticated user.
+      // Visibility controls who can JOIN (enforced by Cloud Functions),
+      // not who can SEE. Queries like getByParticipant fetch all active
+      // events and filter client-side, which requires broad read access.
+      allow read: if isAuth();
+
+      // --- CREATE ---
+      // Any authenticated user; ownerId must match their uid
+      allow create: if isAuth()
+                    && request.resource.data.ownerId == request.auth.uid
+                    && request.resource.data.adminIds == []
+                    && request.resource.data.registrations == []
+                    && request.resource.data.invitedUserIds == []
+                    && request.resource.data.status == 'active'
+                    && request.resource.data.keys().hasAll([
+                         'name', 'date', 'durationInMinutes',
+                         'teamSize', 'maxTeams',
+                         'venueName', 'formattedAddress', 'latitude', 'longitude',
+                         'visibility', 'eventCode', 'status', 'ownerId',
+                         'adminIds', 'registrations', 'invitedUserIds',
+                         'createdAt', 'updatedAt'
+                       ]);
+
+      // --- UPDATE ---
+      // Owner/admin can update basic metadata only.
+      // Registration, admin, and invitation fields are locked from client
+      // and must go through Cloud Functions (admin SDK).
+      allow update: if isAdminOrOwner(resource.data.ownerId, resource.data.adminIds)
+                    && changedFields().hasOnly([
+                         'name', 'description', 'date', 'durationInMinutes',
+                         'teamSize', 'maxTeams',
+                         'venueName', 'formattedAddress', 'latitude', 'longitude',
+                         'placeId', 'visibility', 'status', 'updatedAt'
+                       ]);
+
+      // --- DELETE ---
+      allow delete: if isUser(resource.data.ownerId);
     }
-    
-    // Lists collection
+
+    // ============================================
+    // LISTS
+    // ============================================
     match /lists/{listId} {
-      // Only owner and admins can read lists
-      allow read: if request.auth != null 
-                  && (request.auth.uid == resource.data.ownerId 
-                      || request.auth.uid in resource.data.adminIds);
-      
-      // Only authenticated users can create lists
-      allow create: if request.auth != null;
-      
-      // Owner and admins can update
-      allow update: if request.auth != null 
-                    && (request.auth.uid == resource.data.ownerId 
-                        || request.auth.uid in resource.data.adminIds);
-      
-      // Only owner can delete
-      allow delete: if request.auth != null 
-                    && request.auth.uid == resource.data.ownerId;
-      
+      allow read: if isAuth()
+                  && isAdminOrOwner(resource.data.ownerId, resource.data.adminIds);
+
+      allow create: if isAuth()
+                    && request.resource.data.ownerId == request.auth.uid
+                    && request.resource.data.adminIds == []
+                    && request.resource.data.keys().hasAll([
+                         'name', 'ownerId', 'adminIds', 'createdAt', 'updatedAt'
+                       ]);
+
+      allow update: if isAdminOrOwner(resource.data.ownerId, resource.data.adminIds)
+                    // Can't change owner or creation time from client
+                    && request.resource.data.ownerId == resource.data.ownerId
+                    && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if isUser(resource.data.ownerId);
+
       // List members subcollection
       match /members/{memberId} {
-        allow read: if request.auth != null 
-                    && (request.auth.uid == get(/databases/$(database)/documents/lists/$(listId)).data.ownerId 
-                        || request.auth.uid in get(/databases/$(database)/documents/lists/$(listId)).data.adminIds);
-        allow write: if request.auth != null 
-                     && (request.auth.uid == get(/databases/$(database)/documents/lists/$(listId)).data.ownerId 
-                         || request.auth.uid in get(/databases/$(database)/documents/lists/$(listId)).data.adminIds);
+        allow read: if isAuth()
+                    && isAdminOrOwner(
+                         get(/databases/$(database)/documents/lists/$(listId)).data.ownerId,
+                         get(/databases/$(database)/documents/lists/$(listId)).data.adminIds
+                       );
+        allow write: if isAuth()
+                     && isAdminOrOwner(
+                          get(/databases/$(database)/documents/lists/$(listId)).data.ownerId,
+                          get(/databases/$(database)/documents/lists/$(listId)).data.adminIds
+                        );
       }
+    }
+
+    // ============================================
+    // TOURNAMENTS
+    // ============================================
+    match /tournaments/{tournamentId} {
+      // Public read
+      allow read: if true;
+
+      allow create: if isAuth()
+                    && request.resource.data.submittedBy == request.auth.uid
+                    && request.resource.data.source == 'user';
+
+      allow update: if isAuth()
+                    && request.auth.uid == resource.data.submittedBy
+                    && request.resource.data.submittedBy == resource.data.submittedBy;
+
+      allow delete: if isAuth()
+                    && request.auth.uid == resource.data.submittedBy;
+    }
+
+    // ============================================
+    // ADMIN-ONLY (Cloud Functions / Admin SDK only)
+    // ============================================
+    match /tournamentCache/{cacheId} {
+      allow read, write: if false;
+    }
+
+    match /config/{docId} {
+      allow read, write: if false;
     }
   }
 }

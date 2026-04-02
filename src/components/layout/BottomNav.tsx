@@ -1,11 +1,12 @@
-import { NavLink } from 'react-router-dom';
-import { Home, Users, User } from 'lucide-react';
-import { ROUTES } from '@/config/routes';
+import { NavLink } from "react-router-dom";
+import { Home, Compass, Users, User } from "lucide-react";
+import { ROUTES } from "@/config/routes";
 
 const navItems = [
-  { to: ROUTES.HOME, icon: Home, label: 'Home' },
-  { to: ROUTES.LISTS, icon: Users, label: 'Lists' },
-  { to: ROUTES.PROFILE, icon: User, label: 'Profile' },
+  { to: ROUTES.HOME, icon: Home, label: "Home" },
+  { to: ROUTES.DISCOVER, icon: Compass, label: "Discover" },
+  { to: ROUTES.LISTS, icon: Users, label: "Lists" },
+  { to: ROUTES.PROFILE, icon: User, label: "Profile" },
 ];
 
 export function BottomNav() {
@@ -21,9 +22,10 @@ export function BottomNav() {
               w-16 h-full
               text-xs font-medium
               transition-colors
-              ${isActive
-                ? 'text-primary-600 dark:text-primary-400'
-                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+              ${
+                isActive
+                  ? "text-primary-600 dark:text-primary-400"
+                  : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
               }
             `}
           >

@@ -25,6 +25,9 @@ import { NotificationsView } from "@/views/notifications/NotificationsView";
 import { ListsView } from "@/views/list/ListsView";
 import { ListDetailView } from "@/views/list/ListDetailView";
 import { CreateListView } from "@/views/list/CreateListView";
+import { DiscoverView } from "@/views/discover/DiscoverView";
+import { TournamentDetailView } from "@/views/discover/TournamentDetailView";
+import { SubmitTournamentView } from "@/views/discover/SubmitTournamentView";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -183,6 +186,31 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <NotificationsView />
+          </ProtectedRoute>
+        }
+      />
+      {/* Tournament discovery routes */}
+      <Route
+        path={ROUTES.DISCOVER}
+        element={
+          <OptionalAuthRoute>
+            <DiscoverView />
+          </OptionalAuthRoute>
+        }
+      />
+      <Route
+        path={ROUTES.TOURNAMENT_DETAIL}
+        element={
+          <OptionalAuthRoute>
+            <TournamentDetailView />
+          </OptionalAuthRoute>
+        }
+      />
+      <Route
+        path={ROUTES.SUBMIT_TOURNAMENT}
+        element={
+          <ProtectedRoute>
+            <SubmitTournamentView />
           </ProtectedRoute>
         }
       />

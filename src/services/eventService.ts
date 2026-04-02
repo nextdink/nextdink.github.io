@@ -9,21 +9,18 @@ import {
   limit,
   getDocs,
   serverTimestamp,
-  runTransaction,
-  arrayUnion,
-  arrayRemove,
   type Timestamp,
   addDoc,
   deleteDoc,
 } from "firebase/firestore";
-import { db } from "@/config/firebase";
+import { httpsCallable } from "firebase/functions";
+import { db, functions } from "@/config/firebase";
 import type {
   Event,
   CreateEventData,
   UpdateEventData,
   TeamRegistration,
   TeamMember,
-  RegisterTeamData,
 } from "@/types/event.types";
 import { generateEventCode } from "@/utils/eventCodeUtils";
 
@@ -84,17 +81,6 @@ const removeUndefined = <T extends object>(obj: T): Partial<T> => {
     }
   }
   return result;
-};
-
-// Generate a unique ID for team registrations
-const generateTeamId = (): string => {
-  return crypto.randomUUID
-    ? crypto.randomUUID()
-    : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0;
-        const v = c === "x" ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-      });
 };
 
 export const eventService = {
@@ -197,14 +183,12 @@ export const eventService = {
   },
 
   /**
-   * Cancel event
+   * Cancel event.
+   * Delegates to the cancelEvent Cloud Function (owner only).
    */
   async cancel(eventId: string): Promise<void> {
-    const eventRef = doc(db, "events", eventId);
-    await updateDoc(eventRef, {
-      status: "canceled",
-      updatedAt: serverTimestamp(),
-    });
+    const fn = httpsCallable(functions, "cancelEvent");
+    await fn({ eventId });
   },
 
   /**
@@ -360,419 +344,113 @@ export const eventService = {
   },
 
   // ============================================
-  // Team Registration Operations
+  // Team Registration Operations (via Cloud Functions)
   // ============================================
 
   /**
-   * Register a new team for an event
-   * Returns the status: 'joined' if within capacity, 'waitlisted' if beyond
+   * Register a new team for an event.
+   * Delegates to the registerTeam Cloud Function.
    */
   async registerTeam(
     eventId: string,
-    userId: string,
-    userDisplayName: string,
-    userPhotoUrl: string | null,
-    teamData: RegisterTeamData,
+    _userId: string,
+    _userDisplayName: string,
+    _userPhotoUrl: string | null,
+    teamData: { members: TeamMember[] },
   ): Promise<{ status: "joined" | "waitlisted"; teamId: string }> {
-    return await runTransaction(db, async (transaction) => {
-      const eventRef = doc(db, "events", eventId);
-      const eventSnap = await transaction.get(eventRef);
-
-      if (!eventSnap.exists()) {
-        throw new Error("Event not found");
-      }
-
-      const eventData = eventSnap.data();
-      const registrations = (eventData.registrations ||
-        []) as TeamRegistration[];
-      const teamSize = eventData.teamSize as number;
-      const maxTeams = eventData.maxTeams as number;
-      const declinedUserIds = (eventData.declinedUserIds || []) as string[];
-
-      // Validate team size
-      if (teamData.members.length !== teamSize) {
-        throw new Error(`Team must have exactly ${teamSize} member(s)`);
-      }
-
-      // Check if user is already in a team
-      const isAlreadyRegistered = registrations.some((team) =>
-        team.members.some(
-          (member) => member.type === "user" && member.userId === userId,
-        ),
-      );
-
-      if (isAlreadyRegistered) {
-        throw new Error("You are already registered for this event");
-      }
-
-      // Create the team registration
-      // First member is always the captain (the user registering)
-      const teamId = generateTeamId();
-      const captainMember: TeamMember = {
-        type: "user",
-        userId,
-        displayName: userDisplayName,
-        photoUrl: userPhotoUrl,
-      };
-
-      // Build members array with captain first, then other members
-      const members: TeamMember[] = [
-        captainMember,
-        ...teamData.members.slice(1),
-      ];
-
-      const newTeam: TeamRegistration = {
-        id: teamId,
-        createdBy: userId,
-        createdAt: new Date(),
-        members,
-      };
-
-      // Add to registrations array
-      const updatedRegistrations = [...registrations, newTeam];
-
-      // Remove user from declinedUserIds if they were previously declined
-      const updatedDeclinedUserIds = declinedUserIds.filter(
-        (id) => id !== userId,
-      );
-
-      transaction.update(eventRef, {
-        registrations: updatedRegistrations,
-        declinedUserIds: updatedDeclinedUserIds,
-        updatedAt: serverTimestamp(),
-      });
-
-      // Determine if joined or waitlisted based on position
-      const teamIndex = updatedRegistrations.length - 1;
-      const status = teamIndex < maxTeams ? "joined" : "waitlisted";
-
-      return { status, teamId };
-    });
+    const fn = httpsCallable<
+      { eventId: string; members: TeamMember[] },
+      { status: "joined" | "waitlisted"; teamId: string }
+    >(functions, "registerTeam");
+    const result = await fn({ eventId, members: teamData.members });
+    return result.data;
   },
 
   /**
-   * Leave a team / remove registration
-   * All team members are equal - no captain special treatment
-   * User's slot becomes 'open', team is removed only if no users or guests remain
+   * Leave a team / remove registration.
+   * Delegates to the leaveTeam Cloud Function.
    */
   async leaveTeam(
     eventId: string,
-    userId: string,
+    _userId: string, // eslint-disable-line @typescript-eslint/no-unused-vars
   ): Promise<{ teamRemoved: boolean }> {
-    return await runTransaction(db, async (transaction) => {
-      const eventRef = doc(db, "events", eventId);
-      const eventSnap = await transaction.get(eventRef);
-
-      if (!eventSnap.exists()) {
-        throw new Error("Event not found");
-      }
-
-      const eventData = eventSnap.data();
-      const registrations = (eventData.registrations ||
-        []) as TeamRegistration[];
-
-      // Find the team the user belongs to
-      const teamIndex = registrations.findIndex((team) =>
-        team.members.some(
-          (member) => member.type === "user" && member.userId === userId,
-        ),
-      );
-
-      if (teamIndex === -1) {
-        throw new Error("You are not registered for this event");
-      }
-
-      const team = registrations[teamIndex];
-
-      // Find the user's position in the team
-      const memberIndex = team.members.findIndex(
-        (member) => member.type === "user" && member.userId === userId,
-      );
-
-      if (memberIndex === -1) {
-        throw new Error("Member not found in team");
-      }
-
-      // Convert user's slot to 'open'
-      const updatedMembers = [...team.members];
-      updatedMembers[memberIndex] = { type: "open" };
-
-      // Check if team still has any users or guests
-      const hasUsersOrGuests = updatedMembers.some(
-        (member) => member.type === "user" || member.type === "guest",
-      );
-
-      let updatedRegistrations: TeamRegistration[];
-      let teamRemoved = false;
-
-      if (!hasUsersOrGuests) {
-        // No users or guests left - remove the entire team
-        updatedRegistrations = registrations.filter(
-          (_, index) => index !== teamIndex,
-        );
-        teamRemoved = true;
-      } else {
-        // Keep team with the open slot
-        const updatedTeam = { ...team, members: updatedMembers };
-        updatedRegistrations = [...registrations];
-        updatedRegistrations[teamIndex] = updatedTeam;
-      }
-
-      transaction.update(eventRef, {
-        registrations: updatedRegistrations,
-        updatedAt: serverTimestamp(),
-      });
-
-      return { teamRemoved };
-    });
+    const fn = httpsCallable<{ eventId: string }, { teamRemoved: boolean }>(
+      functions,
+      "leaveTeam",
+    );
+    const result = await fn({ eventId });
+    return result.data;
   },
 
   /**
-   * Claim an open or guest slot in an existing team
-   * If claiming the captain position (index 0), also transfers team ownership
+   * Claim an open or guest slot in an existing team.
+   * Delegates to the claimSlot Cloud Function.
    */
   async claimSlot(
     eventId: string,
     teamId: string,
     memberIndex: number,
-    userId: string,
-    userDisplayName: string,
-    userPhotoUrl: string | null,
+    _userId: string, // eslint-disable-line @typescript-eslint/no-unused-vars
+    _userDisplayName: string, // eslint-disable-line @typescript-eslint/no-unused-vars
+    _userPhotoUrl: string | null, // eslint-disable-line @typescript-eslint/no-unused-vars
   ): Promise<{ status: "joined" | "waitlisted" }> {
-    return await runTransaction(db, async (transaction) => {
-      const eventRef = doc(db, "events", eventId);
-      const eventSnap = await transaction.get(eventRef);
-
-      if (!eventSnap.exists()) {
-        throw new Error("Event not found");
-      }
-
-      const eventData = eventSnap.data();
-      const registrations = (eventData.registrations ||
-        []) as TeamRegistration[];
-      const maxTeams = eventData.maxTeams as number;
-      const declinedUserIds = (eventData.declinedUserIds || []) as string[];
-
-      // Check if user is already in a team
-      const isAlreadyRegistered = registrations.some((team) =>
-        team.members.some(
-          (member) => member.type === "user" && member.userId === userId,
-        ),
-      );
-
-      if (isAlreadyRegistered) {
-        throw new Error("You are already registered for this event");
-      }
-
-      // Find the team
-      const teamIndex = registrations.findIndex((team) => team.id === teamId);
-      if (teamIndex === -1) {
-        throw new Error("Team not found");
-      }
-
-      const team = registrations[teamIndex];
-
-      // Validate member index
-      if (memberIndex < 0 || memberIndex >= team.members.length) {
-        throw new Error("Invalid slot position");
-      }
-
-      const slot = team.members[memberIndex];
-
-      // Check if slot is claimable
-      if (slot.type !== "open" && slot.type !== "guest") {
-        throw new Error("This slot cannot be claimed");
-      }
-
-      // Update the slot with the new user
-      const updatedMembers = [...team.members];
-      updatedMembers[memberIndex] = {
-        type: "user",
-        userId,
-        displayName: userDisplayName,
-        photoUrl: userPhotoUrl,
-      };
-
-      // If claiming the captain position (index 0), transfer team ownership
-      const updatedTeam = {
-        ...team,
-        members: updatedMembers,
-        // Transfer ownership if claiming captain slot
-        ...(memberIndex === 0 && { createdBy: userId }),
-      };
-
-      const updatedRegistrations = [...registrations];
-      updatedRegistrations[teamIndex] = updatedTeam;
-
-      // Remove user from declinedUserIds if they were previously declined
-      const updatedDeclinedUserIds = declinedUserIds.filter(
-        (id) => id !== userId,
-      );
-
-      transaction.update(eventRef, {
-        registrations: updatedRegistrations,
-        declinedUserIds: updatedDeclinedUserIds,
-        updatedAt: serverTimestamp(),
-      });
-
-      // Return status based on team position
-      const status = teamIndex < maxTeams ? "joined" : "waitlisted";
-      return { status };
-    });
+    const fn = httpsCallable<
+      { eventId: string; teamId: string; memberIndex: number },
+      { status: "joined" | "waitlisted" }
+    >(functions, "claimSlot");
+    const result = await fn({ eventId, teamId, memberIndex });
+    return result.data;
   },
 
   /**
-   * Update a team member (captain only)
-   * Can change guest name or convert slot to open
+   * Update a team member (captain only).
+   * Delegates to the updateTeamMember Cloud Function.
    */
   async updateTeamMember(
     eventId: string,
     teamId: string,
     memberIndex: number,
-    userId: string, // For authorization check
+    _userId: string,
     newMember: TeamMember,
   ): Promise<void> {
-    return await runTransaction(db, async (transaction) => {
-      const eventRef = doc(db, "events", eventId);
-      const eventSnap = await transaction.get(eventRef);
-
-      if (!eventSnap.exists()) {
-        throw new Error("Event not found");
-      }
-
-      const eventData = eventSnap.data();
-      const registrations = (eventData.registrations ||
-        []) as TeamRegistration[];
-
-      // Find the team
-      const teamIndex = registrations.findIndex((team) => team.id === teamId);
-      if (teamIndex === -1) {
-        throw new Error("Team not found");
-      }
-
-      const team = registrations[teamIndex];
-
-      // Check if user is the captain
-      if (team.createdBy !== userId) {
-        throw new Error("Only the team captain can edit team members");
-      }
-
-      // Validate member index (can't edit position 0 which is the captain)
-      if (memberIndex <= 0 || memberIndex >= team.members.length) {
-        throw new Error("Invalid slot position");
-      }
-
-      // Update the member
-      const updatedMembers = [...team.members];
-      updatedMembers[memberIndex] = newMember;
-
-      const updatedTeam = { ...team, members: updatedMembers };
-      const updatedRegistrations = [...registrations];
-      updatedRegistrations[teamIndex] = updatedTeam;
-
-      transaction.update(eventRef, {
-        registrations: updatedRegistrations,
-        updatedAt: serverTimestamp(),
-      });
-    });
+    const fn = httpsCallable(functions, "updateTeamMember");
+    await fn({ eventId, teamId, memberIndex, newMember });
   },
 
   /**
-   * Remove a team (admin/owner action)
+   * Remove a team (admin/owner action).
+   * Delegates to the manageTeams Cloud Function.
    */
   async removeTeam(eventId: string, teamId: string): Promise<void> {
-    return await runTransaction(db, async (transaction) => {
-      const eventRef = doc(db, "events", eventId);
-      const eventSnap = await transaction.get(eventRef);
-
-      if (!eventSnap.exists()) {
-        throw new Error("Event not found");
-      }
-
-      const eventData = eventSnap.data();
-      const registrations = (eventData.registrations ||
-        []) as TeamRegistration[];
-
-      const updatedRegistrations = registrations.filter(
-        (team) => team.id !== teamId,
-      );
-
-      transaction.update(eventRef, {
-        registrations: updatedRegistrations,
-        updatedAt: serverTimestamp(),
-      });
-    });
+    const fn = httpsCallable(functions, "manageTeams");
+    await fn({ eventId, action: "removeTeam", teamId });
   },
 
   /**
-   * Remove a team member (admin/owner action)
-   * Replaces the member with an 'open' slot
-   * If all members become 'open', removes the entire team
+   * Remove a team member (admin/owner action).
+   * Delegates to the manageTeams Cloud Function.
    */
   async removeTeamMember(
     eventId: string,
     teamId: string,
     memberIndex: number,
   ): Promise<{ teamRemoved: boolean }> {
-    return await runTransaction(db, async (transaction) => {
-      const eventRef = doc(db, "events", eventId);
-      const eventSnap = await transaction.get(eventRef);
-
-      if (!eventSnap.exists()) {
-        throw new Error("Event not found");
-      }
-
-      const eventData = eventSnap.data();
-      const registrations = (eventData.registrations ||
-        []) as TeamRegistration[];
-
-      // Find the team
-      const teamIndex = registrations.findIndex((team) => team.id === teamId);
-      if (teamIndex === -1) {
-        throw new Error("Team not found");
-      }
-
-      const team = registrations[teamIndex];
-
-      // Validate member index
-      if (memberIndex < 0 || memberIndex >= team.members.length) {
-        throw new Error("Invalid member index");
-      }
-
-      // Replace member with open slot
-      const updatedMembers = [...team.members];
-      updatedMembers[memberIndex] = { type: "open" };
-
-      // Check if all members are now 'open'
-      const allOpen = updatedMembers.every((member) => member.type === "open");
-
-      let updatedRegistrations: TeamRegistration[];
-      let teamRemoved = false;
-
-      if (allOpen) {
-        // Remove the entire team
-        updatedRegistrations = registrations.filter(
-          (_, index) => index !== teamIndex,
-        );
-        teamRemoved = true;
-      } else {
-        // Update the team with the open slot
-        const updatedTeam = { ...team, members: updatedMembers };
-        updatedRegistrations = [...registrations];
-        updatedRegistrations[teamIndex] = updatedTeam;
-      }
-
-      transaction.update(eventRef, {
-        registrations: updatedRegistrations,
-        updatedAt: serverTimestamp(),
-      });
-
-      return { teamRemoved };
+    const fn = httpsCallable<
+      { eventId: string; action: string; teamId: string; memberIndex: number },
+      { success: boolean; teamRemoved: boolean }
+    >(functions, "manageTeams");
+    const result = await fn({
+      eventId,
+      action: "removeMember",
+      teamId,
+      memberIndex,
     });
+    return { teamRemoved: result.data.teamRemoved };
   },
 
   /**
-   * Fill an open slot with a guest name (admin/owner action)
+   * Fill an open slot with a guest name (admin/owner action).
+   * Delegates to the manageTeams Cloud Function.
    */
   async fillOpenSlotWithGuest(
     eventId: string,
@@ -780,254 +458,98 @@ export const eventService = {
     memberIndex: number,
     guestName: string,
   ): Promise<void> {
-    return await runTransaction(db, async (transaction) => {
-      const eventRef = doc(db, "events", eventId);
-      const eventSnap = await transaction.get(eventRef);
-
-      if (!eventSnap.exists()) {
-        throw new Error("Event not found");
-      }
-
-      const eventData = eventSnap.data();
-      const registrations = (eventData.registrations ||
-        []) as TeamRegistration[];
-
-      // Find the team
-      const teamIndex = registrations.findIndex((team) => team.id === teamId);
-      if (teamIndex === -1) {
-        throw new Error("Team not found");
-      }
-
-      const team = registrations[teamIndex];
-
-      // Validate member index
-      if (memberIndex < 0 || memberIndex >= team.members.length) {
-        throw new Error("Invalid member index");
-      }
-
-      const slot = team.members[memberIndex];
-
-      // Check if slot is open
-      if (slot.type !== "open") {
-        throw new Error("This slot is not open");
-      }
-
-      // Replace with guest
-      const updatedMembers = [...team.members];
-      updatedMembers[memberIndex] = {
-        type: "guest",
-        displayName: guestName.trim() || "Guest",
-      };
-
-      const updatedTeam = { ...team, members: updatedMembers };
-      const updatedRegistrations = [...registrations];
-      updatedRegistrations[teamIndex] = updatedTeam;
-
-      transaction.update(eventRef, {
-        registrations: updatedRegistrations,
-        updatedAt: serverTimestamp(),
-      });
+    const fn = httpsCallable(functions, "manageTeams");
+    await fn({
+      eventId,
+      action: "fillWithGuest",
+      teamId,
+      memberIndex,
+      guestName,
     });
   },
 
   /**
-   * Add a guest team (owner/admin action)
-   * Creates a team where all members are guests (no registered users)
+   * Add a guest team (owner/admin action).
+   * Delegates to the manageTeams Cloud Function.
    */
   async addGuestTeam(
     eventId: string,
-    adminUserId: string,
+    _adminUserId: string,
     guestNames: string[],
   ): Promise<{ status: "joined" | "waitlisted"; teamId: string }> {
-    return await runTransaction(db, async (transaction) => {
-      const eventRef = doc(db, "events", eventId);
-      const eventSnap = await transaction.get(eventRef);
-
-      if (!eventSnap.exists()) {
-        throw new Error("Event not found");
-      }
-
-      const eventData = eventSnap.data();
-      const registrations = (eventData.registrations ||
-        []) as TeamRegistration[];
-      const teamSize = eventData.teamSize as number;
-      const maxTeams = eventData.maxTeams as number;
-
-      // Validate team size matches
-      if (guestNames.length !== teamSize) {
-        throw new Error(`Team must have exactly ${teamSize} member(s)`);
-      }
-
-      // Create the guest team
-      const teamId = generateTeamId();
-      const members: TeamMember[] = guestNames.map((name) => ({
-        type: "guest" as const,
-        displayName: name.trim() || "Guest",
-      }));
-
-      const newTeam: TeamRegistration = {
-        id: teamId,
-        createdBy: adminUserId, // Admin who created the guest team
-        createdAt: new Date(),
-        members,
-      };
-
-      // Add to registrations array
-      const updatedRegistrations = [...registrations, newTeam];
-
-      transaction.update(eventRef, {
-        registrations: updatedRegistrations,
-        updatedAt: serverTimestamp(),
-      });
-
-      // Determine if joined or waitlisted based on position
-      const teamIndex = updatedRegistrations.length - 1;
-      const status = teamIndex < maxTeams ? "joined" : "waitlisted";
-
-      return { status, teamId };
+    const fn = httpsCallable<
+      { eventId: string; action: string; guestNames: string[] },
+      { success: boolean; status: "joined" | "waitlisted"; teamId: string }
+    >(functions, "manageTeams");
+    const result = await fn({
+      eventId,
+      action: "addGuestTeam",
+      guestNames,
     });
+    return { status: result.data.status, teamId: result.data.teamId };
   },
 
   // ============================================
-  // Invitation Operations
+  // Invitation Operations (via Cloud Functions)
   // ============================================
 
   /**
-   * Invite a user to an event
+   * Invite a user to an event.
+   * Delegates to the manageInvitations Cloud Function.
    */
   async inviteUser(eventId: string, userId: string): Promise<void> {
-    const eventRef = doc(db, "events", eventId);
-    await updateDoc(eventRef, {
-      invitedUserIds: arrayUnion(userId),
-      updatedAt: serverTimestamp(),
-    });
+    const fn = httpsCallable(functions, "manageInvitations");
+    await fn({ eventId, targetUserId: userId, action: "invite" });
   },
 
   /**
-   * Remove invitation
+   * Remove invitation.
+   * Delegates to the manageInvitations Cloud Function.
    */
   async removeInvitation(eventId: string, userId: string): Promise<void> {
-    const eventRef = doc(db, "events", eventId);
-    await updateDoc(eventRef, {
-      invitedUserIds: arrayRemove(userId),
-      updatedAt: serverTimestamp(),
-    });
+    const fn = httpsCallable(functions, "manageInvitations");
+    await fn({ eventId, targetUserId: userId, action: "remove" });
   },
 
   /**
-   * Decline invitation (user action)
-   * Moves user from invitedUserIds to declinedUserIds
+   * Decline invitation (user action).
+   * Delegates to the respondToInvite Cloud Function.
    */
-  async declineInvitation(eventId: string, userId: string): Promise<void> {
-    const eventRef = doc(db, "events", eventId);
-    await updateDoc(eventRef, {
-      invitedUserIds: arrayRemove(userId),
-      declinedUserIds: arrayUnion(userId),
-      updatedAt: serverTimestamp(),
-    });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async declineInvitation(eventId: string, _userId?: string): Promise<void> {
+    const fn = httpsCallable(functions, "respondToInvite");
+    await fn({ eventId, action: "decline" });
   },
 
   /**
-   * Decline event (registered user action)
-   * Removes user's registration and adds them to declinedUserIds
-   * All team members are equal - no captain special treatment
-   * Team is removed only if no users or guests remain
+   * Decline event (registered user action).
+   * Delegates to the declineEvent Cloud Function.
    */
-  async declineEvent(eventId: string, userId: string): Promise<void> {
-    return await runTransaction(db, async (transaction) => {
-      const eventRef = doc(db, "events", eventId);
-      const eventSnap = await transaction.get(eventRef);
-
-      if (!eventSnap.exists()) {
-        throw new Error("Event not found");
-      }
-
-      const eventData = eventSnap.data();
-      const registrations = (eventData.registrations ||
-        []) as TeamRegistration[];
-      const declinedUserIds = (eventData.declinedUserIds || []) as string[];
-
-      // Find the team the user belongs to
-      const teamIndex = registrations.findIndex((team) =>
-        team.members.some(
-          (member) => member.type === "user" && member.userId === userId,
-        ),
-      );
-
-      if (teamIndex === -1) {
-        throw new Error("You are not registered for this event");
-      }
-
-      const team = registrations[teamIndex];
-
-      // Find the user's position in the team
-      const memberIndex = team.members.findIndex(
-        (member) => member.type === "user" && member.userId === userId,
-      );
-
-      if (memberIndex === -1) {
-        throw new Error("Member not found in team");
-      }
-
-      // Convert user's slot to 'open'
-      const updatedMembers = [...team.members];
-      updatedMembers[memberIndex] = { type: "open" };
-
-      // Check if team still has any users or guests
-      const hasUsersOrGuests = updatedMembers.some(
-        (member) => member.type === "user" || member.type === "guest",
-      );
-
-      let updatedRegistrations: TeamRegistration[];
-
-      if (!hasUsersOrGuests) {
-        // No users or guests left - remove the entire team
-        updatedRegistrations = registrations.filter(
-          (_, index) => index !== teamIndex,
-        );
-      } else {
-        // Keep team with the open slot
-        const updatedTeam = { ...team, members: updatedMembers };
-        updatedRegistrations = [...registrations];
-        updatedRegistrations[teamIndex] = updatedTeam;
-      }
-
-      // Add user to declined list
-      const updatedDeclinedUserIds = declinedUserIds.includes(userId)
-        ? declinedUserIds
-        : [...declinedUserIds, userId];
-
-      transaction.update(eventRef, {
-        registrations: updatedRegistrations,
-        declinedUserIds: updatedDeclinedUserIds,
-        updatedAt: serverTimestamp(),
-      });
-    });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async declineEvent(eventId: string, _userId?: string): Promise<void> {
+    const fn = httpsCallable(functions, "declineEvent");
+    await fn({ eventId });
   },
 
   // ============================================
-  // Admin Operations
+  // Admin Operations (via Cloud Functions)
   // ============================================
 
   /**
-   * Add admin to event
+   * Add admin to event.
+   * Delegates to the manageAdmins Cloud Function.
    */
   async addAdmin(eventId: string, userId: string): Promise<void> {
-    const eventRef = doc(db, "events", eventId);
-    await updateDoc(eventRef, {
-      adminIds: arrayUnion(userId),
-      updatedAt: serverTimestamp(),
-    });
+    const fn = httpsCallable(functions, "manageAdmins");
+    await fn({ eventId, targetUserId: userId, action: "add" });
   },
 
   /**
-   * Remove admin from event
+   * Remove admin from event.
+   * Delegates to the manageAdmins Cloud Function.
    */
   async removeAdmin(eventId: string, userId: string): Promise<void> {
-    const eventRef = doc(db, "events", eventId);
-    await updateDoc(eventRef, {
-      adminIds: arrayRemove(userId),
-      updatedAt: serverTimestamp(),
-    });
+    const fn = httpsCallable(functions, "manageAdmins");
+    await fn({ eventId, targetUserId: userId, action: "remove" });
   },
 };

@@ -2,6 +2,10 @@ import { initializeApp, type FirebaseApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import {
+  getFunctions as getFirebaseFunctions,
+  connectFunctionsEmulator,
+} from "firebase/functions";
+import {
   getMessaging,
   getToken,
   onMessage,
@@ -34,6 +38,12 @@ const app: FirebaseApp = initializeApp(firebaseConfig);
 // Initialize services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const functions = getFirebaseFunctions(app);
+
+// Connect to Functions emulator in local development
+if (import.meta.env.DEV) {
+  connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+}
 
 /**
  * Firebase Cloud Messaging instance
