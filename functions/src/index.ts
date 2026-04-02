@@ -7,6 +7,8 @@
 
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
+import { FieldValue } from "firebase-admin/firestore";
+import { GoogleGenAI } from "@google/genai";
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -490,3 +492,226 @@ export const onEventUpdated = functions.firestore
 
 // Suppress unused variable warning
 void getRegistrationCaptain;
+
+// ============================================
+// AI TOURNAMENT DISCOVERY
+// ============================================
+
+/**
+ * Callable function: Discover upcoming pickleball tournaments near a location
+ * using Gemini AI with Google Search grounding.
+ */
+export const discoverTournaments = functions
+  .runWith({ timeoutSeconds: 300, memory: "512MB" })
+  .https.onCall(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async (data, context) => {
+      const { latitude, longitude, radiusMiles = 25 } = data;
+
+      if (typeof latitude !== "number" || typeof longitude !== "number") {
+        throw new functions.https.HttpsError(
+          "invalid-argument",
+          "latitude and longitude are required numbers",
+        );
+      }
+
+      // Geo-bucketing: round to nearest 0.1° for cache key
+      const bucketLat = parseFloat(
+        (Math.round(latitude / 0.1) * 0.1).toFixed(1),
+      );
+      const bucketLng = parseFloat(
+        (Math.round(longitude / 0.1) * 0.1).toFixed(1),
+      );
+      const cacheKey = `${bucketLat}_${bucketLng}`;
+
+      // Check cache
+      const cacheDoc = await db
+        .collection("tournamentCache")
+        .doc(cacheKey)
+        .get();
+      if (cacheDoc.exists) {
+        const cacheData = cacheDoc.data();
+        const cachedAt = cacheData?.cachedAt?.toDate();
+        const now = new Date();
+        const CACHE_TTL_HOURS = 72;
+
+        if (
+          cachedAt &&
+          now.getTime() - cachedAt.getTime() < CACHE_TTL_HOURS * 60 * 60 * 1000
+        ) {
+          console.log(`Cache hit for ${cacheKey}`);
+          return { tournaments: cacheData?.tournaments || [], fromCache: true };
+        }
+      }
+
+      // Check monthly usage counter
+      const usageRef = db.collection("config").doc("searchUsage");
+      const usageDoc = await usageRef.get();
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const usageData = usageDoc.exists ? usageDoc.data() : null;
+      const monthlyCount =
+        usageData?.month === currentMonth ? usageData?.count || 0 : 0;
+      const MONTHLY_LIMIT = 4500;
+
+      if (monthlyCount >= MONTHLY_LIMIT) {
+        console.warn(
+          `Monthly search limit reached (${monthlyCount}/${MONTHLY_LIMIT})`,
+        );
+        if (cacheDoc.exists) {
+          return {
+            tournaments: cacheDoc.data()?.tournaments || [],
+            fromCache: true,
+            limitReached: true,
+          };
+        }
+        return { tournaments: [], fromCache: false, limitReached: true };
+      }
+
+      // Call Gemini API with Google Search grounding
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new functions.https.HttpsError(
+          "internal",
+          "GEMINI_API_KEY not configured",
+        );
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+
+      const locationPrompt = `latitude ${latitude}, longitude ${longitude}`;
+
+      const prompt = `Find upcoming pickleball tournaments within ${radiusMiles} miles of ${locationPrompt}. Search for tournaments from all sources including pickleballtournaments.com, local recreation departments, community centers, and club events.
+
+For each tournament, provide the following information in a JSON array. Return ONLY the JSON array with no markdown formatting, no code blocks, no additional text:
+
+[
+  {
+    "name": "Tournament Name",
+    "description": "Brief description",
+    "startDate": "YYYY-MM-DD",
+    "endDate": "YYYY-MM-DD",
+    "venueName": "Venue Name",
+    "formattedAddress": "Full address",
+    "latitude": 0.0,
+    "longitude": 0.0,
+    "format": "singles|doubles|mixed|multi",
+    "skillLevels": ["3.0", "3.5", "4.0"],
+    "entryFee": "$40/event",
+    "organizerName": "Organizer",
+    "sourceUrl": "https://...",
+    "registrationUrl": "https://..."
+  }
+]
+
+Important:
+- Only include tournaments that haven't happened yet (upcoming)
+- Include the actual source URL where you found each tournament
+- If you can't find tournament details, use reasonable defaults
+- If you can't find any tournaments, return an empty array []
+- Return ONLY valid JSON, no other text`;
+
+      try {
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: prompt,
+          config: {
+            tools: [{ googleSearch: {} }],
+          },
+        });
+
+        const responseText = response.text?.trim() || "[]";
+
+        // Parse the JSON response — handle potential markdown code blocks
+        let cleanedText = responseText;
+        if (cleanedText.startsWith("```")) {
+          cleanedText = cleanedText
+            .replace(/^```(?:json)?\n?/, "")
+            .replace(/\n?```$/, "");
+        }
+
+        let tournaments: unknown[];
+        try {
+          tournaments = JSON.parse(cleanedText);
+        } catch {
+          console.error("Failed to parse Gemini response:", cleanedText);
+          tournaments = [];
+        }
+
+        if (!Array.isArray(tournaments)) {
+          tournaments = [];
+        }
+
+        // Normalize and validate results
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const normalizedTournaments = tournaments.map(
+          (t: any, index: number) => ({
+            id: `ai_${cacheKey}_${index}`,
+            name: String(t.name || "Unknown Tournament"),
+            description: t.description ? String(t.description) : null,
+            startDate: String(
+              t.startDate || new Date().toISOString().slice(0, 10),
+            ),
+            endDate: String(
+              t.endDate || t.startDate || new Date().toISOString().slice(0, 10),
+            ),
+            venueName: String(t.venueName || "TBD"),
+            formattedAddress: String(t.formattedAddress || ""),
+            latitude: typeof t.latitude === "number" ? t.latitude : latitude,
+            longitude:
+              typeof t.longitude === "number" ? t.longitude : longitude,
+            format: ["singles", "doubles", "mixed", "multi"].includes(t.format)
+              ? t.format
+              : "multi",
+            skillLevels: Array.isArray(t.skillLevels)
+              ? t.skillLevels.map(String)
+              : [],
+            entryFee: t.entryFee ? String(t.entryFee) : null,
+            organizerName: t.organizerName ? String(t.organizerName) : null,
+            sourceUrl: t.sourceUrl ? String(t.sourceUrl) : null,
+            registrationUrl: t.registrationUrl
+              ? String(t.registrationUrl)
+              : null,
+            source: "ai",
+            cachedAt: new Date().toISOString(),
+            status: "upcoming",
+          }),
+        );
+
+        // Cache results
+        await db
+          .collection("tournamentCache")
+          .doc(cacheKey)
+          .set({
+            tournaments: normalizedTournaments,
+            cachedAt: FieldValue.serverTimestamp(),
+            location: { latitude: bucketLat, longitude: bucketLng },
+            radiusMiles,
+          });
+
+        // Increment usage counter
+        await usageRef.set({
+          month: currentMonth,
+          count: monthlyCount + 1,
+          lastSearchAt: FieldValue.serverTimestamp(),
+        });
+
+        console.log(
+          `Found ${normalizedTournaments.length} tournaments near ${cacheKey}`,
+        );
+        return { tournaments: normalizedTournaments, fromCache: false };
+      } catch (error) {
+        console.error("Gemini API error:", error);
+        if (cacheDoc.exists) {
+          return {
+            tournaments: cacheDoc.data()?.tournaments || [],
+            fromCache: true,
+            error: true,
+          };
+        }
+        throw new functions.https.HttpsError(
+          "internal",
+          "Failed to discover tournaments",
+        );
+      }
+    },
+  );
