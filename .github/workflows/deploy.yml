@@ -90,6 +90,9 @@ jobs:
       - name: Install Functions dependencies
         run: cd functions && npm ci
 
+      - name: Set Functions runtime environment variables
+        run: echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > functions/.env
+
       - name: Deploy to Firebase Functions
         uses: w9jds/firebase-action@master
         with:
